@@ -12,7 +12,7 @@ export const settingsSchema = z.object({
 }).refine(v => v.projectType !== 'angularjs' || !v.sonar, { message: 'AngularJS ยังไม่รองรับ SonarCloud' }).refine(v => !v.sonar || Boolean(v.projectKey && v.organization), { message: 'กรอก Project key และ Organization ของ SonarCloud' });
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', geminiModel: 'gemini-3.1-flash-lite', aiTimeout: 90, coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@971b31492c474d0c6d3760b0606e6dd0a64a6c34';
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@aa02584e5fe1b41af88b6a2091302484920e2915';
 
 export function installationFiles(input: Settings) {
   const s = settingsSchema.parse(input);

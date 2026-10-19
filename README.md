@@ -1,6 +1,6 @@
 ## AngularJS และการใช้ Action ต้นฉบับ (19 ตุลาคม 2026)
 
-หน้าเว็บเลือก JavaScript/Jest หรือ AngularJS 1.x ได้ โดยเรียก Action ที่ commit 971b31492c474d0c6d3760b0606e6dd0a64a6c34 และให้ Action ตรวจ สร้างผลลัพธ์ และโพสต์คอมเมนต์ทั้งหมด ไม่มี summary/ตัวตัดสินผลตรวจที่เว็บเพิ่มเอง
+หน้าเว็บเลือก JavaScript/Jest หรือ AngularJS 1.x ได้ โดยเรียก Action ที่ commit aa02584e5fe1b41af88b6a2091302484920e2915 และให้ Action ตรวจ สร้างผลลัพธ์ และโพสต์คอมเมนต์ทั้งหมด ไม่มี summary/ตัวตัดสินผลตรวจที่เว็บเพิ่มเอง
 
 AngularJS ใช้สาม jobs ตาม docs/angularjs.md และ workflow ของ angularjs-ai-review-demo: generate → checks → report ส่ง artifacts รวม hidden files และตรวจสิทธิ์แยก job ไม่ execute โค้ด PR ใน job ที่มี Gemini secret หรือสิทธิ์เขียนคอมเมนต์
 - ตั้งชนิดโปรเจกต์ AngularJS, Gemini model และ timeout 10–180 วินาที แล้วบันทึก GEMINI_API_KEY
