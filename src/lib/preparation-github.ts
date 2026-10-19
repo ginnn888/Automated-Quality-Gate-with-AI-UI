@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { GitHubError, github, githubFailure } from './github';
-import { planPreparation, type PreparationPlan } from './preparation';
+import { planPreparation, planAngularPreparation, type PreparationPlan } from './preparation';
 
 export class PreparationError extends Error {
   constructor(message: string, public status = 409) { super(message); }
@@ -15,7 +15,7 @@ type Pull = { html_url: string; number: number; state: string };
 export function clientFor(token: string): GitHubClient { return (path, method, body) => github(token, path, method, body); }
 const digestPlan = (repository: string, sha: string, plan: PreparationPlan) => createHash('sha256').update(JSON.stringify({ repository, sha, files: plan.files })).digest('hex');
 
-export async function inspectRepository(api: GitHubClient, repository: string): Promise<Snapshot> {
+export async function inspectRepository(api: GitHubClient, repository: string, projectType: 'javascript' | 'angularjs' = 'javascript'): Promise<Snapshot> {
   // A GitHub App user token is limited to the intersection of user and app access.
   const prefix = `/repos/${repository}`;
   const repo = await api<Repo>(prefix);
@@ -33,7 +33,7 @@ export async function inspectRepository(api: GitHubClient, repository: string): 
     return Buffer.from(blob.content, 'base64').toString('utf8');
   }
   const [packageJson, packageLock] = await Promise.all([read('package.json'), read('package-lock.json')]);
-  const plan = planPreparation({ paths: tree.tree.map(e => e.path), packageJson, packageLock });
+  const plan = (projectType === 'angularjs' ? planAngularPreparation : planPreparation)({ paths: tree.tree.map(e => e.path), packageJson, packageLock });
   for (const file of plan.files) {
     const existing = tree.tree.find(e => e.path === file.path);
     if (existing && (existing.type !== 'blob' || existing.mode !== '100644')) throw new PreparationError(`ไม่แก้ ${file.path} อัตโนมัติ เพราะชนิดไฟล์ไม่ใช่ไฟล์ปกติ`);
@@ -69,11 +69,11 @@ export async function createPlannedPR(api: GitHubClient, repository: string, sna
   try { await verifyExistingBranch(); }
   catch (error) {
     if (!(error instanceof GitHubError) || error.status !== 404) throw error;
-    const commit = await api<{ sha: string }>(`${prefix}/git/commits`, 'POST', { message: install ? 'Install experimental Quality Gate' : 'Prepare npm and Jest for Quality Gate', tree: createdTree.sha, parents: [snapshot.baseSha] });
+    const commit = await api<{ sha: string }>(`${prefix}/git/commits`, 'POST', { message: install ? 'Install or update Quality Gate' : 'Prepare npm and Jest for Quality Gate', tree: createdTree.sha, parents: [snapshot.baseSha] });
     try { await api(`${prefix}/git/refs`, 'POST', { ref: `refs/heads/${branch}`, sha: commit.sha }); }
     catch (error) { if (!(error instanceof GitHubError) || error.status !== 422) throw error; await verifyExistingBranch(); }
   }
-  const body = install ? ['Install the existing Quality Gate Action for testing. Engine code is unchanged.', ...snapshot.plan.messages, 'Review the files, then merge to enable push runs. Open a subsequent code PR to test PR reporting. A failed or skipped engine run is not a successful code review.', `Base: ${snapshot.baseSha}`].join('\n\n') : [
+  const body = install ? ['Install the pinned upstream Quality Gate Action. Analysis and PR reports are produced by that Action.', ...snapshot.plan.messages, 'Review and merge these files, then open a code PR against the updated base branch. The upstream Action controls the checks and reports.', `Base: ${snapshot.baseSha}`].join('\n\n') : [
     'Prepare missing npm/Jest files so this repository can run tests. Existing source files, scripts and Jest configuration are preserved.',
     '## Changes', ...snapshot.plan.files.map(f => `- ${f.before === null ? 'Add' : 'Update'} \`${f.path}\``),
     '\n## Notes', ...snapshot.plan.messages.map(m => `- ${m}`),
@@ -82,7 +82,7 @@ export async function createPlannedPR(api: GitHubClient, repository: string, sna
     `\nPrepared from commit \`${snapshot.baseSha}\`.`,
   ].join('\n');
   try {
-    const pull = await api<Pull>(`${prefix}/pulls`, 'POST', { title: install ? 'Install experimental Quality Gate' : 'Prepare npm and Jest for Quality Gate', head: branch, base: snapshot.baseBranch, body });
+    const pull = await api<Pull>(`${prefix}/pulls`, 'POST', { title: install ? 'Install or update Quality Gate' : 'Prepare npm and Jest for Quality Gate', head: branch, base: snapshot.baseBranch, body });
     return { url: pull.html_url, number: pull.number, reused: false };
   } catch (error) {
     if (error instanceof GitHubError && error.status === 422) {

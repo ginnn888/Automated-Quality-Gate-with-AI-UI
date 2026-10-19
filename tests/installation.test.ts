@@ -2,12 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPreparationPR, inspectRepository, type GitHubClient } from '../src/lib/preparation-github';
 import { createInstallation, inspectInstallation } from '../src/lib/installation';
-import { defaultSettings } from '../src/lib/config';
+import { defaultSettings, installationFiles } from '../src/lib/config';
 import { planPreparation } from '../src/lib/preparation';
 import { GitHubError } from '../src/lib/github';
 
-function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean } = {}) {
-  const prepared = planPreparation({ paths: ['src/math.js'], packageJson: null, packageLock: null }).files;
+function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean; angular?: boolean; alternate?: boolean } = {}) {
+  let prepared = planPreparation({ paths: ['src/math.js'], packageJson: null, packageLock: null }).files;
+  if (options.angular) {
+    const pkg = { dependencies: { angular: '1.8.3' } };
+    prepared = [
+      { path: 'package.json', before: null, after: JSON.stringify(pkg) },
+      { path: 'package-lock.json', before: null, after: JSON.stringify({ packages: { '': pkg, 'node_modules/angular': { version: '1.8.3' } } }) },
+    ];
+    if (options.alternate) prepared.push({ path: '.github/workflows/aq-review.yml', before: null, after: installationFiles({ ...defaultSettings, projectType: 'angularjs', aiTimeout: 60 })['.github/workflows/quality-gate.yml'] });
+  }
   const calls: { path: string; method: string; body: unknown }[] = [];
   let branch = false, opened = false, fail = options.failPR || false;
   const api: GitHubClient = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
@@ -57,4 +65,16 @@ test('missing secret blocks installation before mutation', async () => {
   };
   await assert.rejects(inspectInstallation(blocked, 'user/app', defaultSettings), /GEMINI_API_KEY/);
   assert.ok(calls.every(c => c.method === 'GET'));
+});
+
+for (const alternate of [false, true]) test(`AngularJS installs only upstream workflow, alternate=${alternate}`, async () => {
+  const { api, calls } = fakeGitHub({ angular: true, alternate });
+  const settings = { ...defaultSettings, projectType: 'angularjs' as const };
+  const preview = await inspectInstallation(api, 'user/app', settings);
+  assert.equal(preview.plan.files.length, 1);
+  assert.equal(preview.plan.files[0].path, alternate ? '.github/workflows/aq-review.yml' : '.github/workflows/quality-gate.yml');
+  assert.ok(!calls.some(call => call.path.includes('SONAR_TOKEN')));
+  await createInstallation(api, 'user/app', settings, preview.baseSha, preview.digest);
+  const tree = calls.find(call => call.path.endsWith('/git/trees') && call.method === 'POST')!.body as { tree: { path: string }[] };
+  assert.deepEqual(tree.tree.map(file => file.path), [preview.plan.files[0].path]);
 });

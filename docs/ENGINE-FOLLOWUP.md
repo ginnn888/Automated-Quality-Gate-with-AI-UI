@@ -1,3 +1,5 @@
+> Historical notes for the old JavaScript engine. Installation is now enabled; AngularJS uses upstream commit 971b31492c474d0c6d3760b0606e6dd0a64a6c34. See README for current behavior.
+
 # Action compatibility — follow-up, not changed in this project
 
 Inspected 2026-10-16 at commit `5ea12ad0ce2beed94a301785040e420de25f3095` in NonnaritRammaneekultawat-6609650459/test-github-marketplace.

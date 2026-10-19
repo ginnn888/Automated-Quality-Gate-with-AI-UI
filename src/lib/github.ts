@@ -33,4 +33,4 @@ export async function github<T>(token: string, path: string, method = 'GET', bod
   const text = await response.text();
   return text ? JSON.parse(text) as T : undefined as T;
 }
-export type Repository = { id: number; full_name: string; description: string | null; private: boolean; default_branch: string; language: string | null; html_url: string; installation?: 'active' | 'missing' | 'unknown'; run?: { conclusion: string | null; status: string; html_url: string } };
+export type Repository = { id: number; full_name: string; description: string | null; private: boolean; default_branch: string; language: string | null; html_url: string; installation?: 'active' | 'missing' | 'incomplete' | 'unknown'; run?: { conclusion: string | null; status: string; html_url: string } };

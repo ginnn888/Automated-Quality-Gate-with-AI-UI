@@ -1,11 +1,25 @@
+## AngularJS และการใช้ Action ต้นฉบับ (19 ตุลาคม 2026)
+
+หน้าเว็บเลือก JavaScript/Jest หรือ AngularJS 1.x ได้ โดยเรียก Action ที่ commit 971b31492c474d0c6d3760b0606e6dd0a64a6c34 และให้ Action ตรวจ สร้างผลลัพธ์ และโพสต์คอมเมนต์ทั้งหมด ไม่มี summary/ตัวตัดสินผลตรวจที่เว็บเพิ่มเอง
+
+AngularJS ใช้สาม jobs ตาม docs/angularjs.md และ workflow ของ angularjs-ai-review-demo: generate → checks → report ส่ง artifacts รวม hidden files และตรวจสิทธิ์แยก job ไม่ execute โค้ด PR ใน job ที่มี Gemini secret หรือสิทธิ์เขียนคอมเมนต์
+- ตั้งชนิดโปรเจกต์ AngularJS, Gemini model และ timeout 10–180 วินาที แล้วบันทึก GEMINI_API_KEY
+- โหมดนี้ไม่มี coverage/SonarCloud ตามข้อจำกัดของ Action รุ่นนี้ และใช้ report_only: true ตามต้นฉบับ สถานะ job สำเร็จไม่เท่ากับทุกผลตรวจผ่าน ให้ดูรายงาน
+- แอปต้องมี package.json, package-lock.json ที่ตรงกัน, dependency angular และโค้ด src/*.js เว็บไม่เพิ่ม Jest หรือ test config สำหรับ AngularJS
+- สร้าง PR ติดตั้ง/อัปเดต → merge เข้า base branch → เปิดหรืออัปเดต PR งาน ระบบใช้ pull_request_target จาก base branch ไม่รันจาก push อย่างเดียว
+- repo ที่มี quality-gate.yml จะอัปเดตไฟล์เดิม; หากมี aq-review.yml ที่รู้จักจะอัปเดตไฟล์นั้น หากมีทั้งสองจะให้แก้ความซ้ำก่อน ไม่เพิ่ม workflow ซ้ำ
+- config_cov.json และ sonar-project.properties เดิมเก็บไว้เมื่อเปลี่ยนเป็น AngularJS แต่ workflow AngularJS ไม่เรียกใช้ ส่วน JavaScript ยังใช้ config ของ engine เดิม
+- สถานะติดตั้งรองรับ quality-gate.yml และ aq-review.yml พร้อมสาม phase โดย AngularJS ไม่ต้องมี config_cov.json
+- ตรวจด้วย unit/integration mocks และ production build; ยังต้องทดลอง GitHub end-to-end ด้วย App/keys ของเจ้าของบัญชี ไม่มีการสร้าง PR ใน repo ผู้ใช้ระหว่างพัฒนา
+
 ## สถานะล่าสุด: เปิดทดลองติดตั้ง Action เดิมแล้ว
 
 ขั้นตรวจสอบก่อนติดตั้ง → ตรวจความพร้อมติดตั้ง → ตรวจไฟล์เดิม/ใหม่ → สร้าง PR ติดตั้ง → เปิด PR และ merge เอง
 ต้องเตรียม npm/Jest ให้พร้อมและ merge PR เตรียมโปรเจกต์ก่อน พร้อมบันทึก GEMINI_API_KEY และ SONAR_TOKEN เมื่อเปิด SonarCloud
 GitHub App ต้องมี Contents, Pull requests, Workflows และ Secrets ตามสิทธิ์ Read and write ที่ GitHub มีให้ แล้วผู้ติดตั้งอนุมัติสิทธิ์ใหม่
-ทดสอบปิด/เปิด SonarCloud ได้โดยเปลี่ยนการตั้งค่าแล้วสร้าง PR ใหม่ ผลแสดงที่ Actions → Automated Quality Gate → Summary และ logs รายงาน AI ใน PR ขึ้นกับ engine เดิม ไม่รับรองว่าจะตรวจสำเร็จ
+ทดสอบปิด/เปิด SonarCloud ได้โดยเปลี่ยนการตั้งค่าแล้วสร้าง PR ใหม่ ผลแสดงที่ Actions → workflow run และ logs รายงาน AI ใน PR ขึ้นกับ engine เดิม ไม่รับรองว่าจะตรวจสำเร็จ
 ไม่มีการแก้ repo engine, ไม่มีการ merge อัตโนมัติ และไม่มีการสร้าง PR จริงระหว่างพัฒนา การตรวจสถานะติดตั้งบน dashboard ยังไม่ทำ
-หาก Sonar scan ล้มเหลวจะลอง engine ต่อ และคงสถานะงานล้มเหลวพร้อม summary สรุปการรัน (ไม่ใช่ผลรีวิวที่สมบูรณ์)
+JavaScript เรียก Action หลังการสแกนตาม workflow ต้นฉบับ ผลและรายงานจัดการโดย Action
 
 # Automated Quality Gate · Web UI
 
@@ -168,3 +182,8 @@ npm audit ของ Jest template 30.5.2 ยังรายงานช่อง
 - ขั้นตั้งค่าการตรวจ: เปิด SonarCloud กรอก Organization Key และ token แล้วกดแสดงโปรเจกต์ที่มีอยู่ เลือกเพื่อเติม Project Key ได้ รองรับ SonarCloud EU; รายการเป็นโปรเจกต์ที่ token เข้าถึงได้ ไม่ใช่หลักฐานว่าผูกกับ GitHub repo ที่เลือกแล้ว
 - Token ค้นหาใช้กับ SonarCloud เท่านั้น ไม่บันทึกลง repo อัตโนมัติ ถ้าจะใช้ workflow ต้องกดบันทึก SONAR_TOKEN ในขั้นเชื่อมต่อบริการต่างหาก
 - การบันทึก key ยังไม่ติดตั้งหรือเปิดรัน Action; ต้องสร้างและ merge PR ติดตั้ง workflow ก่อน; engine ยังไม่ได้แก้ไข
+
+## สถานะการติดตั้งบนหน้า Repositories
+
+อ่าน .github/workflows/quality-gate.yml และ config_cov.json จาก commit เดียวกันใน default branch: พบ workflow เรียก engine และ coverage config ถูกต้อง = ติดตั้งแล้ว; ไม่พบ workflow = ยังไม่ติดตั้ง; ไฟล์ผิดหรือไม่ครบ = ตั้งค่าไม่ครบ; API/สิทธิ์ผิดพลาด = ตรวจสอบไม่ได้ สถานะไม่ยืนยัน secrets, workflow เปิดใช้งาน หรือผลตรวจผ่าน
+มีตัวกรองและจำนวนแยกสถานะ พร้อมปุ่มรีเฟรชหลัง merge PR ติดตั้ง รายการโหลดจาก GitHub App ที่ตั้งค่าไว้เท่านั้น ข้อความตั้งค่า GitHub App/env และแผนพัฒนาไม่แสดงใน UI ผู้ใช้แล้ว

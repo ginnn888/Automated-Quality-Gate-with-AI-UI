@@ -11,3 +11,27 @@
 .field-hint a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
 
 .credential-panel{margin:24px 0;padding:20px;border:1px solid var(--border, #dce4f3);border-radius:10px}.credential-panel>input{width:100%;padding:14px;border:1px solid #dce4f3;border-radius:6px}.credential-panel .notice{overflow-wrap:anywhere}
+
+.repo-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 8px}.filter-selected{background:#edf2ff;color:#275be9;border-color:#a8bfff}.repo-status small{max-width:220px}
+
+/* Browser-style tabs for the installation wizard. */
+.wizard-tab-strip{background:#edf0f6;border-bottom:1px solid var(--line);padding:12px 18px 0}
+.wizard-tabs{list-style:none;display:flex;gap:4px;padding:0;margin:0;isolation:isolate}
+.wizard-tabs li{position:relative;flex:1;min-width:0}
+.wizard-tabs li:not(.current):not(:last-child)::after{content:"";position:absolute;right:-2px;top:12px;height:20px;width:1px;background:#d1d8e4;pointer-events:none}
+.wizard-tabs li.current{z-index:2}
+.wizard-tabs button{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:48px;padding:11px 10px;border:0;border-radius:12px 12px 0 0;background:transparent;color:#65738c;font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}
+.wizard-tabs button:hover:not(:disabled){background:#e0e6f0;color:#263f67}
+.wizard-tabs li.current button{background:white;color:#2459d9;font-weight:600;box-shadow:0 -1px 0 rgba(42,67,108,.04)}
+.wizard-tabs li.current button::before,.wizard-tabs li.current button::after{content:"";position:absolute;bottom:0;width:12px;height:12px;pointer-events:none;background:radial-gradient(circle at 0 0,transparent 12px,white 12.5px)}
+.wizard-tabs li.current button::before{left:-12px;transform:scaleX(-1)}
+.wizard-tabs li.current button::after{right:-12px}
+.wizard-tabs li.current::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:2px;background:white}
+.wizard-tabs button:disabled{color:#9aa4b6;cursor:default}
+.wizard-tabs button:focus-visible{outline:2px solid #3165e6;outline-offset:-5px}
+.wizard-tab-icon{display:flex;align-items:center;justify-content:center;width:21px;height:21px;flex-shrink:0;border-radius:6px;background:#dfe5ef;color:#63728c;font-size:11px;font-weight:600}
+.wizard-tabs .current .wizard-tab-icon{background:#e9efff;color:#2459d9}
+.wizard-tabs .done .wizard-tab-icon{background:#e1f0e8;color:#25805b}
+@media(max-width:760px){.wizard-tab-strip{padding:10px 8px 0}.wizard-tabs{gap:2px}.wizard-tabs button{flex-direction:column;gap:5px;padding:9px 3px;min-height:67px;font-size:10px;white-space:normal;line-height:1.4}.wizard-tab-label{text-align:center}.wizard-tabs li.current button::before,.wizard-tabs li.current button::after{width:8px;height:8px;background:radial-gradient(circle at 0 0,transparent 8px,white 8.5px)}.wizard-tabs li.current button::before{left:-8px}.wizard-tabs li.current button::after{right:-8px}}
+
+.field-grid select{display:block;width:100%;border:1px solid #dce4f0;padding:11px 13px;border-radius:6px;margin-top:7px;background:white;font:inherit;font-size:13px}

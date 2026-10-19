@@ -11,6 +11,24 @@ const stringify = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const configNames = ['jest.config.js', 'jest.config.cjs', 'jest.config.mjs', 'jest.config.ts', 'jest.config.cts', 'jest.config.json'];
 
+export function planAngularPreparation(snapshot: ProjectSnapshot): PreparationPlan {
+  const blocked = (message: string): PreparationPlan => ({ status: 'blocked', files: [], messages: [message] });
+  try {
+    if (!snapshot.packageJson || !snapshot.packageLock) return blocked('AngularJS ต้องมี package.json และ package-lock.json ของแอป กรุณารัน npm install ในโปรเจกต์แล้ว commit ไฟล์ก่อน');
+    const pkg = JSON.parse(snapshot.packageJson), lock = JSON.parse(snapshot.packageLock);
+    if (pkg.workspaces || (pkg.packageManager && !pkg.packageManager.startsWith('npm@'))) return blocked('รุ่นนี้รองรับ AngularJS ที่ใช้ npm ใน root ของ repo');
+    if (!pkg.dependencies?.angular && !pkg.devDependencies?.angular) return blocked('ไม่พบ dependency angular (AngularJS 1.x) ใน package.json');
+    const root = lock.packages?.[''];
+    if (!root || !lock.packages?.['node_modules/angular']) return blocked('package-lock.json ต้องมี AngularJS กรุณารัน npm install และ commit lockfile');
+    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+      const sorted = (value: object) => JSON.stringify(Object.entries(value || {}).sort());
+      if (sorted(pkg[field]) !== sorted(root[field])) return blocked('package.json กับ lockfile ไม่ตรงกัน กรุณารัน npm install และ commit ก่อน');
+    }
+    if (!snapshot.paths.some(path => /^src\/.*\.js$/.test(path))) return blocked('ต้องมีโค้ด AngularJS ใน src/ เพื่อให้ Action ตรวจได้');
+    return { status: 'ready', files: [], messages: ['Action จะสร้างและรันเทสต์ AngularJS เอง ไม่ต้องเพิ่ม Jest หรือไฟล์เทสต์จากเว็บ'] };
+  } catch { return blocked('อ่าน package.json หรือ package-lock.json ไม่ได้ กรุณาตรวจรูปแบบ JSON'); }
+}
+
 /** Pure planner: no repository code, scripts or configuration are executed. */
 export function planPreparation(snapshot: ProjectSnapshot): PreparationPlan {
   const { paths } = snapshot;
