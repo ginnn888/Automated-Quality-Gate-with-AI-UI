@@ -26,14 +26,12 @@ export function installationFiles(input: Settings) {
 name: Automated Quality Gate
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-  workflow_dispatch:
+    types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read
   pull-requests: write
 concurrency:
-  group: quality-\${{ github.workflow }}-\${{ github.ref }}
+  group: quality-\${{ github.workflow }}-pr-\${{ github.event.pull_request.number }}
   cancel-in-progress: true
 jobs:
   quality:

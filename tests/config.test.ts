@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { parse } from 'yaml';
 import { defaultSettings, installationFiles, settingsSchema } from '../src/lib/config';
+
+test('JavaScript runs once per PR event, with the same activity types as AngularJS', () => {
+  const js = parse(installationFiles(defaultSettings)['.github/workflows/quality-gate.yml']);
+  const angular = parse(installationFiles({ ...defaultSettings, projectType: 'angularjs' })['.github/workflows/quality-gate.yml']);
+  assert.deepEqual(Object.keys(js.on), ['pull_request']);
+  assert.deepEqual(js.on.pull_request.types, angular.on.pull_request_target.types);
+  assert.ok(js.jobs.quality.if.includes('github.event.pull_request.head.repo.full_name == github.repository'));
+  assert.ok(js.concurrency.group.includes('github.event.pull_request.number'));
+});
 
 test('coverage is validated and written to the engine config', () => {
   const files = installationFiles({ ...defaultSettings, coverage: 91 });

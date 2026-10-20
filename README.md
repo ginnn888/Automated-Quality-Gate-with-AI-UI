@@ -1,3 +1,9 @@
+## เหตุการณ์ที่เริ่มตรวจ (20 ตุลาคม 2026)
+
+JavaScript ใช้ pull_request เฉพาะ opened, synchronize, reopened, ready_for_review เช่นเดียวกับชนิดกิจกรรมของ AngularJS; ไม่มี push หรือ workflow_dispatch จึงไม่รันซ้ำจาก push และ PR ในครั้งเดียว และไม่รันหลัง merge โดยตรง คงการข้าม fork/Dependabot สำหรับ workflow JavaScript ที่รันโค้ดและใช้ key ใน job เดียว ส่วน AngularJS คง pull_request_target และสาม jobs ตามต้นฉบับ
+repo ที่ติดตั้งแล้วต้องสร้างและ merge PR อัปเดต workflow ผ่านเว็บก่อน การแก้ template ไม่เปลี่ยน repo ผู้ใช้อัตโนมัติ
+SonarCloud Automatic Analysis แยกจาก CI analysis; ช่อง Sonar ในเว็บยังใช้สำหรับ CI analysis ที่ต้องมี token และ project/organization config
+
 ## AngularJS และการใช้ Action ต้นฉบับ (19 ตุลาคม 2026)
 
 หน้าเว็บเลือก JavaScript/Jest หรือ AngularJS 1.x ได้ โดยเรียก Action ที่ commit aa02584e5fe1b41af88b6a2091302484920e2915 และให้ Action ตรวจ สร้างผลลัพธ์ และโพสต์คอมเมนต์ทั้งหมด ไม่มี summary/ตัวตัดสินผลตรวจที่เว็บเพิ่มเอง
