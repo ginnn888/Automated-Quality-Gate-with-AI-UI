@@ -48,7 +48,7 @@ test('OAuth continuation is internal-only and is cleared after the callback', as
     process.env.APP_URL = 'http://localhost:3000';
     const start = await login(new NextRequest('http://localhost:3000/api/auth/login?next=https://evil.example'));
     assert.equal(start.cookies.get('qg_oauth_next')?.value, 'connect');
-    globalThis.fetch = async () => Response.json({ access_token: 'fake-test-token' });
+    globalThis.fetch = async (url) => String(url).endsWith('/user') ? Response.json({ id: 123, login: 'test-user', name: null }) : Response.json({ access_token: 'fake-test-token' });
     for (const next of ['return', 'install', 'connect', 'https://evil.example']) {
       const state = 'a'.repeat(64);
       const res = await callback(new NextRequest(`http://localhost:3000/api/auth/callback?code=test&state=${state}`, { headers: { cookie: `qg_oauth_state=${state}; qg_oauth_next=${next}` } }));

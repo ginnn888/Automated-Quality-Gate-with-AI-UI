@@ -23,6 +23,9 @@ export async function seal(token: string) {
 }
 export async function sessionToken() {
   const value = (await cookies()).get('qg_session')?.value;
+  return unseal(value);
+}
+export async function unseal(value: string | undefined) {
   if (!value) return null;
   try {
     const { payload } = await jwtDecrypt(value, key());

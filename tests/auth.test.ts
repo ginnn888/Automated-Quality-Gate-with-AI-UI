@@ -25,7 +25,7 @@ test('OAuth callback rejects missing, mismatched and non-ASCII state before toke
     const res = await callback(req);
     assert.equal(res.status, 307);
     assert.match(res.headers.get('location')!, /notice=auth/);
-    assert.ok(!res.cookies.has('qg_session'));
+    assert.equal(res.cookies.get('qg_session')?.value, '');
   }
 });
 test('installation rejects cross-origin mutations', async () => {

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { appUrl, cookieOptions, seal } from '@/lib/session';
+import { identityFor } from '@/lib/identity';
 export async function GET(request: NextRequest) {
   const expected = request.cookies.get('qg_oauth_state')?.value;
   const state = request.nextUrl.searchParams.get('state');
   const code = request.nextUrl.searchParams.get('code');
   const fail = () => {
-    const res = NextResponse.redirect(new URL('/?notice=auth', appUrl()));
+    const res = NextResponse.redirect(new URL('/login?notice=auth', appUrl()));
+    res.cookies.delete('qg_session');
     res.cookies.delete('qg_oauth_state');
     res.cookies.delete('qg_oauth_next');
     return res;
@@ -16,6 +18,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch('https://github.com/login/oauth/access_token', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: process.env.GITHUB_CLIENT_ID, client_secret: process.env.GITHUB_CLIENT_SECRET, code, redirect_uri: `${appUrl()}/api/auth/callback` }), cache: 'no-store' });
     const data = await response.json();
     if (!response.ok || !data.access_token) return fail();
+    await identityFor(data.access_token);
     const next = request.cookies.get('qg_oauth_next')?.value;
     const mode = next === 'install' || next === 'return' ? next : 'connect';
     const result = NextResponse.redirect(new URL(`/api/github/${mode}`, appUrl()));

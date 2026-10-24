@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, BookOpen, Check, ChevronRight, CircleHelp, Code2, ExternalLink, FolderGit2, Github, LayoutDashboard, LoaderCircle, LockKeyhole, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { defaultSettings, installationFiles, type Settings } from '@/lib/config';
+import type { Identity } from '@/lib/identity';
 import type { Repository } from '@/lib/github';
 import ProjectPreparation from './project-preparation';
 import Installation from './installation';
@@ -15,7 +16,7 @@ const examples: Repository[] = [
 ];
 const steps = ['เลือก repository', 'ตั้งค่าการตรวจ', 'เชื่อมต่อบริการ', 'ตรวจสอบก่อนติดตั้ง'];
 
-export default function Workspace({ connected, configured, appSlug }: { connected: boolean; configured: boolean; appSlug: string }) {
+export default function Workspace({ user, connected, configured, appSlug }: { user: Identity; connected: boolean; configured: boolean; appSlug: string }) {
   const [view, setView] = useState<'repos' | 'guide' | 'setup'>('repos');
   const [demo, setDemo] = useState(false);
   const [repos, setRepos] = useState<Repository[]>([]);
@@ -26,10 +27,10 @@ export default function Workspace({ connected, configured, appSlug }: { connecte
   const refresh = useCallback(async () => {
     if (!connected) return;
     setLoading(true);
-    try { const response = await fetch('/api/repositories', { cache: 'no-store' }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setRepos(data.repositories); }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'โหลด repository ไม่สำเร็จ'); }
+    try { const response = await fetch('/api/repositories', { cache: 'no-store' }); const data = await response.json(); if (response.status === 401) { setRepos([]); window.location.replace('/login?notice=auth'); return; } if (!response.ok) throw new Error(data.error); if (data.userId !== user.id) { setRepos([]); window.location.reload(); return; } setRepos(data.repositories); }
+    catch (error) { setRepos([]); setMessage(error instanceof Error ? error.message : 'โหลด repository ไม่สำเร็จ'); }
     finally { setLoading(false); }
-  }, [connected]);
+  }, [connected, user.id]);
   const [modal, setModal] = useState(false);
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Repository | null>(null);
@@ -64,6 +65,24 @@ export default function Workspace({ connected, configured, appSlug }: { connecte
     document.addEventListener('keydown', handler);
     return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', handler); previous?.focus(); };
   }, [modal]);
+  useEffect(() => {
+    let disposed = false;
+    const check = async () => {
+      try {
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        const data = await response.json();
+        if (disposed) return;
+        if (!response.ok || data.user?.id !== user.id) {
+          setRepos([]); setModal(false); setSelected(null);
+          window.location.replace(response.ok ? '/' : '/login?notice=auth');
+        }
+      } catch { if (!disposed) { setRepos([]); setModal(false); setMessage('ตรวจบัญชีไม่ได้ กรุณาโหลดหน้าใหม่'); } }
+    };
+    const timer = window.setInterval(check, 60000);
+    window.addEventListener('focus', check);
+    window.addEventListener('pageshow', check);
+    return () => { disposed = true; window.clearInterval(timer); window.removeEventListener('focus', check); window.removeEventListener('pageshow', check); };
+  }, [user.id]);
   const displayed = demo ? examples : repos;
   const filtered = displayed.filter(r => r.full_name.toLowerCase().includes(search.toLowerCase()) && (statusFilter === 'all' || r.installation === statusFilter));
   const start = (repo?: Repository) => { setSelected(repo || null); setStep(repo ? 1 : 0); setFormError(''); setModal(true); };
@@ -84,10 +103,10 @@ export default function Workspace({ connected, configured, appSlug }: { connecte
         <button className={view === 'setup' ? 'nav active' : 'nav'} onClick={() => setView('setup')}><Settings2 size={19}/> การเชื่อมต่อ</button>
       </nav>
       <div className="sidebar-note"><ShieldCheck size={22}/><strong>โค้ดของคุณ อยู่ใน repo คุณ</strong><p>ตรวจผ่าน GitHub Actions แล้วกลับไปทำงานใน workflow ที่คุ้นเคย</p><a href="https://github.com/NonnaritRammaneekultawat-6609650459/test-github-marketplace" target="_blank" rel="noreferrer">ดูเครื่องมือตรวจโค้ด <ArrowUpRight size={15}/></a></div>
-      <div className="account"><span className="avatar"><Github size={21}/></span><div><strong>{connected ? 'GitHub connected' : 'ยังไม่ได้เชื่อมต่อ'}</strong><small>{demo ? 'กำลังดูข้อมูลตัวอย่าง' : 'พื้นที่ทำงานของคุณ'}</small></div></div>
+      <div className="account"><span className="avatar"><img src={user.avatar_url} alt="" width={40} height={40}/></span><div><strong>@{user.login}</strong><small>{demo ? 'กำลังดูข้อมูลตัวอย่าง' : 'พื้นที่ทำงานของคุณ'}</small></div></div>
     </aside>
     <main>
-      <header className="topbar"><span>Workspace <ChevronRight size={15}/> {view === 'repos' ? 'Repositories' : view === 'guide' ? 'คู่มือ' : 'การเชื่อมต่อ'}</span><div>{connected ? <form action="/api/auth/logout" method="post"><button className="text-button">ออกจากระบบ</button></form> : <a className="connect" href={configured ? '/api/github/connect' : '#setup'} onClick={() => { if (!configured) setView('setup'); }}><Github size={17}/> เชื่อมต่อ GitHub</a>}</div></header>
+      <header className="topbar"><span>Workspace <ChevronRight size={15}/> {view === 'repos' ? 'Repositories' : view === 'guide' ? 'คู่มือ' : 'การเชื่อมต่อ'}</span><div className="account-actions"><span>เข้าสู่ระบบเป็น <strong>@{user.login}</strong></span>{connected ? <form action="/api/auth/logout" method="post"><button className="text-button">ออกจากระบบ / เปลี่ยนบัญชี</button></form> : <a className="connect" href={configured ? '/api/github/connect' : '#setup'} onClick={() => { if (!configured) setView('setup'); }}><Github size={17}/> เชื่อมต่อ GitHub</a>}</div></header>
       <div className="content">
         {message && <div className="notice" role="status">{message}<button aria-label="ปิดข้อความ" onClick={() => setMessage('')}><X size={16}/></button></div>}
         {demo && <div className="demo-banner"><span>โหมดตัวอย่าง — ข้อมูลสมมติ ไม่มีการแก้ไข GitHub</span><button onClick={() => setDemo(false)}>ออกจากตัวอย่าง <X size={14}/></button></div>}
