@@ -11,16 +11,12 @@ export async function GET(request: NextRequest) {
     const user = await identityFor(token);
     const repos = new Map<number, Repository>();
     for (let page = 1; ; page++) {
-      const data = await github<{ installations: { id: number; app_slug: string; suspended_at: string | null }[] }>(token, `/user/installations?per_page=100&page=${page}`);
-      for (const installation of data.installations) {
-        if (installation.app_slug !== process.env.GITHUB_APP_SLUG || installation.suspended_at) continue;
-        for (let rp = 1; ; rp++) {
-          const list = await github<{ repositories: Repository[] }>(token, `/user/installations/${installation.id}/repositories?per_page=100&page=${rp}`);
-          list.repositories.forEach(repo => repos.set(repo.id, repo));
-          if (list.repositories.length < 100) break;
-        }
+      const list = await github<Repository[]>(token, `/user/repos?per_page=100&page=${page}&sort=updated&affiliation=owner,collaborator,organization_member`);
+      if (!Array.isArray(list) || list.length === 0) break;
+      for (const repo of list) {
+        repos.set(repo.id, repo);
       }
-      if (data.installations.length < 100) break;
+      if (list.length < 100) break;
     }
     const listed = [...repos.values()].map(r => ({ id: r.id, full_name: r.full_name, description: r.description, private: r.private, default_branch: r.default_branch, language: r.language, html_url: r.html_url }));
     return NextResponse.json({ userId: user.id, repositories: await withInstallationStatuses(clientFor(token), listed) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } });

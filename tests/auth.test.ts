@@ -5,6 +5,7 @@ import { jwtDecrypt } from 'jose';
 import { NextRequest } from 'next/server';
 import { seal } from '../src/lib/session';
 import { GET as callback } from '../src/app/api/auth/callback/route';
+import { GET as login } from '../src/app/api/auth/login/route';
 import { POST as install } from '../src/app/api/install/route';
 import { POST as preparation } from '../src/app/api/preparation/route';
 
@@ -36,4 +37,21 @@ test('installation rejects cross-origin mutations', async () => {
 test('preparation rejects cross-origin requests before touching the session or GitHub', async () => {
   const request = new NextRequest('http://localhost:3000/api/preparation', { method: 'POST', headers: { origin: 'https://untrusted.example', 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', repository: 'user/repo' }) });
   assert.equal((await preparation(request)).status, 403);
+});
+test('login redirects to GitHub with prompt=select_account to isolate accounts', async () => {
+  const prevEnv = { ...process.env };
+  process.env.SESSION_SECRET = 'test-only-session-key-with-more-than-32-characters';
+  process.env.GITHUB_CLIENT_ID = 'test-client-id';
+  process.env.GITHUB_CLIENT_SECRET = 'test-secret';
+  process.env.GITHUB_APP_SLUG = 'test-slug';
+  try {
+    const req = new NextRequest('http://localhost:3000/api/auth/login');
+    const res = await login(req);
+    assert.equal(res.status, 307);
+    const location = new URL(res.headers.get('location')!);
+    assert.equal(location.searchParams.get('prompt'), 'select_account');
+    assert.equal(location.searchParams.get('client_id'), 'test-client-id');
+  } finally {
+    process.env = prevEnv;
+  }
 });

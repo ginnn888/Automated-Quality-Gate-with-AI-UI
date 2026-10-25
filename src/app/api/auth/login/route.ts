@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('client_id', process.env.GITHUB_CLIENT_ID!);
   url.searchParams.set('redirect_uri', `${appUrl()}/api/auth/callback`);
   url.searchParams.set('state', state);
+  url.searchParams.set('prompt', 'select_account');
   const response = NextResponse.redirect(url);
   response.cookies.set('qg_oauth_state', state, { ...cookieOptions, maxAge: 600 });
   const next = request.nextUrl.searchParams.get('next');

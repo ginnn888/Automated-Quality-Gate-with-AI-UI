@@ -24,6 +24,7 @@ test('two concurrent users receive only their own identity and accessible reposi
       const id = who === 'alice' ? 1 : 2;
       const path = new URL(String(input)).pathname;
       if (path === '/user') return Response.json({ id, login: who, name: who });
+      if (path === '/user/repos') return Response.json([{ id, full_name: `${who}/private-project`, private: true, default_branch: 'main', language: 'JavaScript', html_url: `https://github.com/${who}/private-project`, description: null }]);
       if (path === '/user/installations') return Response.json({ installations: [{ id, app_slug: 'quality-gate', suspended_at: null }] });
       if (path === `/user/installations/${id}/repositories`) return Response.json({ repositories: [{ id, full_name: `${who}/private-project`, private: true, default_branch: 'main', language: 'JavaScript', html_url: `https://github.com/${who}/private-project`, description: null }] });
       assert.ok(path.startsWith(`/repos/${who}/`), 'cross-account GitHub request');
