@@ -28,6 +28,30 @@ test('Sonar receives both scan environment and Action input', () => {
   assert.match(files['.github/workflows/quality-gate.yml'], /sonar_token: \$\{\{ secrets.SONAR_TOKEN }}/);
   assert.match(files['sonar-project.properties'], /sonar.projectKey=team:app/);
 });
+
+for (const projectType of ['javascript', 'angularjs'] as const) test(`${projectType} scans in isolation and reports the current task`, () => {
+  const files = installationFiles({ ...defaultSettings, projectType, sonar: true, projectKey: 'team:app', organization: 'my-team' });
+  const { generate, checks, sonar, report } = parse(files['.github/workflows/quality-gate.yml']).jobs;
+  const scan = sonar.steps.find((step: { name?: string }) => step.name === 'SonarCloud Scan');
+  assert.deepEqual(sonar.permissions, { contents: 'read' });
+  assert.equal(sonar.needs, 'checks');
+  assert.ok(!JSON.stringify(checks).includes('SONAR_TOKEN'));
+  assert.ok(!JSON.stringify(generate).includes('SONAR_TOKEN'));
+  assert.ok(!sonar.steps.some((step: { run?: string }) => step.run));
+  assert.equal(sonar.steps[0].with.ref, '${{ github.event.pull_request.head.sha }}');
+  assert.equal(sonar.steps[0].with['persist-credentials'], false);
+  assert.equal(sonar.steps[0].with['fetch-depth'], 0);
+  assert.ok(scan.with.args.includes('-Dproject.settings=/dev/null'));
+  assert.ok(scan.with.args.includes('-Dsonar.pullrequest.key=${{ github.event.pull_request.number }}'));
+  const coverage = projectType === 'angularjs' ? 'coverage/quality-gate/lcov.info' : 'coverage/lcov.info';
+  assert.ok(scan.with.args.includes('-Dsonar.javascript.lcov.reportPaths=' + coverage));
+  assert.ok(files['sonar-project.properties'].includes('sonar.javascript.lcov.reportPaths=' + coverage));
+  assert.deepEqual(report.needs, ['generate', 'checks', 'sonar']);
+  assert.equal(report.steps.at(-1).with.sonar_scan_status, '${{ needs.sonar.result }}');
+  assert.equal(report.steps.at(-1).with.sonar_project_key, 'team:app');
+  assert.equal(sonar.steps.at(-1).if, 'always()');
+  assert.ok(report.steps.some((step: { with?: { name?: string } }) => step.with?.name === 'quality-gate-sonar'));
+});
 test('rejects missing Sonar config and newline injection', () => {
   assert.throws(() => installationFiles({ ...defaultSettings, sonar: true }));
   assert.throws(() => installationFiles({ ...defaultSettings, sonar: true, projectKey: 'project\nsonar.token=bad', organization: 'org' }));

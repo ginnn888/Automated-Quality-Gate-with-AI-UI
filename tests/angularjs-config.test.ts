@@ -40,10 +40,10 @@ test('untrusted test execution is isolated from Gemini secrets and comment write
   for (const job of [generate, checks]) assert.equal(job.steps.at(-1).with['include-hidden-files'], true);
 });
 
-test('user inputs cannot inject YAML and AngularJS cannot silently enable unsupported Sonar', () => {
+test('user inputs cannot inject YAML or omit required Sonar settings', () => {
   assert.throws(() => installationFiles({ ...settings, geminiModel: "x\nrun: evil" }));
   assert.throws(() => installationFiles({ ...settings, aiTimeout: 181 }));
-  assert.throws(() => installationFiles({ ...settings, sonar: true, projectKey: 'p', organization: 'o' }));
+  assert.throws(() => installationFiles({ ...settings, sonar: true }));
   const changed = parse(installationFiles({ ...settings, geminiModel: 'gemini-custom', aiTimeout: 120 })['.github/workflows/quality-gate.yml']);
   assert.equal(changed.jobs.generate.steps[0].with.gemini_model, 'gemini-custom');
   assert.equal(changed.jobs.generate.steps[0].with.ai_timeout_seconds, '120');

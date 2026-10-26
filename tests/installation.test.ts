@@ -108,6 +108,22 @@ for (const angular of [false, true]) test(`custom AI installs a published Action
   assert.equal(calls.filter(c => c.method === 'POST' && c.path.endsWith('/pulls')).length, 1);
 });
 
+test('AngularJS Sonar install creates one PR with tooling, coverage and scan configuration', async () => {
+  const { api, calls } = fakeGitHub({ angular: true });
+  const settings = { ...defaultSettings, projectType: 'angularjs' as const, sonar: true, projectKey: 'team:app', organization: 'team' };
+  const result = await installOnce(api, 'user/app', settings);
+  assert.equal(result.pull?.number, 1);
+  assert.ok(calls.some(c => c.path.endsWith('/actions/secrets/SONAR_TOKEN')));
+  assert.ok(result.preview.plan.files.some(f => f.path === 'sonar-project.properties' && f.after.includes('coverage/quality-gate/lcov.info')));
+  assert.ok(result.preview.plan.files.some(f => f.path === 'quality-gate/run.cjs'));
+  assert.equal(calls.filter(c => c.method === 'POST' && c.path.endsWith('/pulls')).length, 1);
+  const blocked: GitHubClient = (path, method, body) => {
+    if (path.endsWith('/actions/secrets/SONAR_TOKEN')) throw new GitHubError(404);
+    return api(path, method, body);
+  };
+  await assert.rejects(inspectInstallation(blocked, 'user/app', settings), /SONAR_TOKEN/);
+});
+
 for (const alternate of [false, true]) test(`AngularJS installs only upstream workflow, alternate=${alternate}`, async () => {
   const { api, calls } = fakeGitHub({ angular: true, alternate });
   const settings = { ...defaultSettings, projectType: 'angularjs' as const };

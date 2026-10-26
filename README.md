@@ -128,7 +128,7 @@ npm run dev
 
 1. เข้าสู่ระบบ แล้วอนุญาต GitHub App ให้เข้าถึง repository งาน
 2. เลือก repo และชนิดโปรเจกต์
-3. ตั้งค่า AI, เป้าหมาย coverage และ SonarCloud หากเป็น JavaScript ที่ต้องการใช้
+3. ตั้งค่า AI, เป้าหมาย coverage และ SonarCloud หากต้องการใช้ ทั้ง JavaScript และ AngularJS
 4. บันทึก API key ในขั้นเชื่อมต่อบริการ
 5. กด **Install / อัปเดต** เพียงครั้งเดียว
 6. เปิด PR ที่เว็บสร้าง ตรวจไฟล์ แล้ว merge ด้วยตนเอง
@@ -151,7 +151,7 @@ npm run dev
 | --- | --- |
 | JavaScript/Jest | workflow, `config_cov.json` และ package/lockfile/Jest config ที่จำเป็นต้องเพิ่ม |
 | AngularJS | workflow, `config_cov.json` และชุดเครื่องมือแยกใน `quality-gate/` |
-| JavaScript ที่เปิด SonarCloud | เพิ่ม `sonar-project.properties` |
+| JavaScript หรือ AngularJS ที่เปิด SonarCloud | เพิ่ม `sonar-project.properties` |
 
 AngularJS ยังต้องมี dependencies ของแอปและ root lockfile ที่ถูกต้อง เว็บไม่สร้าง dependencies ของแอปจากการคาดเดา
 
@@ -163,9 +163,17 @@ AngularJS ยังต้องมี dependencies ของแอปและ r
 | --- | --- | --- |
 | Gemini API | ชื่อโมเดล; ค่าเริ่มต้นในโค้ดคือ `gemini-3.1-flash-lite` | `GEMINI_API_KEY` |
 | OpenAI-compatible | ชื่อโมเดลและ HTTPS Chat Completions URL แบบเต็ม | `AI_API_KEY` |
-| SonarCloud สำหรับ JavaScript | Organization และ Project key | `SONAR_TOKEN` |
+| SonarCloud สำหรับ JavaScript / AngularJS | Organization และ Project key | `SONAR_TOKEN` |
 
 การค้นหาโปรเจกต์ SonarCloud ผ่านเว็บรองรับภูมิภาค EU (`sonarcloud.io`) และไม่ใช่การสร้างโปรเจกต์ใหม่
+
+เมื่อเปิด SonarCloud ให้ปิด Automatic Analysis และตั้งให้วิเคราะห์ผ่าน GitHub Actions เตรียม Project Key, Organization และ Token ที่มีสิทธิ์วิเคราะห์ repo นั้น โดยโปรเจกต์และแพ็กเกจต้องรองรับ PR analysis และมีผลวิเคราะห์ branch หลักเป็นฐานแล้ว
+
+Workflow เพิ่ม job `sonar` แยกจากการรันเทสต์ รับ LCOV จาก `coverage/lcov.info` สำหรับ JavaScript หรือ `coverage/quality-gate/lcov.info` สำหรับ AngularJS แล้วรายงานผลใน Security Audit ของ PR ระบบผูกผล Quality Gate กับ task ของการสแกนรอบนั้น หากสแกนไม่สำเร็จจะแสดง UNAVAILABLE และไม่ถือว่าผ่าน แต่ยังเก็บผลเทสต์และเพิ่มไฟล์เทสต์ใน PR ได้
+
+![ตัวอย่างการเปิด SonarCloud สำหรับ AngularJS](docs/assets/angularjs-sonar-qa.png)
+
+Repo ที่ติดตั้งอยู่แล้วต้องเปิดการตั้งค่า เลือก AngularJS และ SonarCloud บันทึก Token แล้วกด Install เพื่อสร้าง PR อัปเดต จากนั้นตรวจและ merge PR ก่อนเปิด PR งานรอบใหม่
 
 ตัวอย่างรูปแบบ URL สำหรับบริการอื่น:
 
@@ -252,7 +260,7 @@ npm start
 
 การเตรียม JavaScript อัตโนมัติเน้น **CommonJS + npm ที่ root**; TypeScript, JSX, ESM, workspaces, monorepo และ package manager อื่นอาจต้องตั้งค่าเฉพาะ AngularJS ต้องมีโค้ดใน `src/` และ bootstrap ที่รองรับ
 
-Workflow รุ่นใหม่ไม่เขียนเทสต์ไปยัง fork และข้าม GitHub Actions bot/Dependabot ตามเงื่อนไขใน workflow เพื่อป้องกันการทำงานวนซ้ำ SonarCloud ยังไม่รองรับใน AngularJS
+Workflow รุ่นใหม่ไม่เขียนเทสต์ไปยัง fork และข้าม GitHub Actions bot/Dependabot ตามเงื่อนไขใน workflow เพื่อป้องกันการทำงานวนซ้ำ ทั้งสองโหมดเปิด SonarCloud เพิ่มเติมได้
 
 ## สำหรับผู้พัฒนา
 
