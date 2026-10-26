@@ -9,7 +9,7 @@ async function submit(service: string, body: unknown) {
   return data;
 }
 
-export function RepositorySecret({ repository, name, demo }: { repository: string; name: 'GEMINI_API_KEY' | 'SONAR_TOKEN'; demo: boolean }) {
+export function RepositorySecret({ repository, name, demo }: { repository: string; name: 'GEMINI_API_KEY' | 'AI_API_KEY' | 'SONAR_TOKEN'; demo: boolean }) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -24,9 +24,9 @@ export function RepositorySecret({ repository, name, demo }: { repository: strin
     finally { setBusy(false); }
   }
   return <div className="credential-panel">
-    <label className="secret-field" htmlFor={name}>{gemini ? 'Gemini API key' : 'Sonar token'}</label>
+    <label className="secret-field" htmlFor={name}>{gemini ? 'Gemini API key' : name === 'AI_API_KEY' ? 'AI API key' : 'Sonar token'}</label>
     <input id={name} type="password" autoComplete="off" spellCheck={false} disabled={demo || busy} value={value} onChange={e => { setValue(e.target.value); setMessage(''); }} placeholder={demo ? 'โหมดตัวอย่าง ไม่รับ key จริง' : `วาง ${name} ของคุณ`}/>
-    <p className="field-hint">{gemini ? <><a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a> → Create API key → เลือกโปรเจกต์ → คัดลอก key</> : <><a href="https://sonarcloud.io/account/security" target="_blank" rel="noreferrer">SonarCloud → Security</a> → Generate token → คัดลอก token</>}</p>
+    <p className="field-hint">{gemini ? <><a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a> → Create API key → เลือกโปรเจกต์ → คัดลอก key</> : name === 'AI_API_KEY' ? 'ใช้ key ของบริการที่ตรงกับ API URL ที่ตั้งไว้ โค้ดจะถูกส่งไปยังบริการนั้นเมื่อ workflow ทำงาน' : <><a href="https://sonarcloud.io/account/security" target="_blank" rel="noreferrer">SonarCloud → Security</a> → Generate token → คัดลอก token</>}</p>
     <button className="secondary" disabled={demo || busy || !value.trim()} onClick={save}>{busy ? 'กำลังบันทึก…' : `บันทึก ${name} ลง repo`}</button>
     <p className="field-hint">หาก repo มี secret ชื่อนี้แล้ว การบันทึกจะเปลี่ยนเป็นค่าใหม่</p>
     {message && <p role="status" className="notice">{message}</p>}

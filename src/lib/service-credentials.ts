@@ -4,7 +4,7 @@ import type { GitHubClient } from './preparation-github';
 
 export const credentialSchema = z.object({
   repository: z.string().max(210).regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/),
-  name: z.enum(['GEMINI_API_KEY', 'SONAR_TOKEN']),
+  name: z.enum(['GEMINI_API_KEY', 'AI_API_KEY', 'SONAR_TOKEN']),
   value: z.string().trim().min(10).max(512).regex(/^\S+$/),
 }).strict();
 

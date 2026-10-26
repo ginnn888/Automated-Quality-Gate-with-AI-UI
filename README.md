@@ -1,3 +1,9 @@
+## AI ที่ผู้ใช้กำหนดเอง (26 ตุลาคม 2026)
+
+ตั้งชื่อโมเดลได้เองทั้ง JavaScript และ AngularJS รองรับ Gemini API เดิมและบริการแบบ OpenAI-compatible Chat Completions ผ่าน HTTPS URL ของผู้ใช้ โดยใช้ `AI_API_KEY` สำหรับบริการอื่น ไม่มีการล็อกรายชื่อโมเดลหรือทดสอบ key ขณะบันทึก รุ่นใหม่ของ Action ต้องเผยแพร่ไป GitHub ก่อนสร้าง PR ติดตั้งแบบ AI API อื่น เว็บจะตรวจว่ามี commit นั้นแล้วก่อนดำเนินการ
+
+ดู [รายการตรวจหลังแก้และขั้นตอนทดลองจริง](docs/AI-MODELS-CHECKLIST.md) สำหรับขอบเขต ผลที่ควรเห็น และจุดย้อนกลับ ข้อความประวัติด้านล่างบางส่วนอธิบายรุ่นก่อนหน้า
+
 ## เหตุการณ์ที่เริ่มตรวจ (20 ตุลาคม 2026)
 
 JavaScript ใช้ pull_request เฉพาะ opened, synchronize, reopened, ready_for_review เช่นเดียวกับชนิดกิจกรรมของ AngularJS; ไม่มี push หรือ workflow_dispatch จึงไม่รันซ้ำจาก push และ PR ในครั้งเดียว และไม่รันหลัง merge โดยตรง คงการข้าม fork/Dependabot สำหรับ workflow JavaScript ที่รันโค้ดและใช้ key ใน job เดียว ส่วน AngularJS คง pull_request_target และสาม jobs ตามต้นฉบับ

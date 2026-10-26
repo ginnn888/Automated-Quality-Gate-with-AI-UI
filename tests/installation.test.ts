@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPreparationPR, inspectRepository, type GitHubClient } from '../src/lib/preparation-github';
 import { createInstallation, inspectInstallation } from '../src/lib/installation';
-import { defaultSettings, installationFiles } from '../src/lib/config';
+import { defaultSettings, flexibleEngineRef, installationFiles } from '../src/lib/config';
 import { planPreparation } from '../src/lib/preparation';
 import { GitHubError } from '../src/lib/github';
 
@@ -21,7 +21,8 @@ function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: 
   const api: GitHubClient = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
     calls.push({ path, method, body });
     let result: unknown;
-    if (path === '/repos/user/app') result = { full_name: 'user/app', default_branch: 'main', permissions: { push: options.canPush !== false } };
+    if (path === `/repos/${flexibleEngineRef.replace('@', '/commits/')}`) result = { sha: flexibleEngineRef.split('@')[1] };
+    else if (path === '/repos/user/app') result = { full_name: 'user/app', default_branch: 'main', permissions: { push: options.canPush !== false } };
     else if (path.endsWith('/git/ref/heads/main')) result = { object: { sha: 'a'.repeat(40) } };
     else if (path.endsWith(`/git/commits/${'a'.repeat(40)}`)) result = { tree: { sha: 'old-tree' } };
     else if (path.includes('/git/trees/old-tree')) result = { truncated: options.truncated || false, tree: [{ path: 'src/math.js', type: 'blob', mode: '100644', sha: 'source' }, ...prepared.map((f, i) => ({ path: f.path, type: 'blob', mode: '100644', sha: 'blob-' + i }))] };
@@ -65,6 +66,23 @@ test('missing secret blocks installation before mutation', async () => {
   };
   await assert.rejects(inspectInstallation(blocked, 'user/app', defaultSettings), /GEMINI_API_KEY/);
   assert.ok(calls.every(c => c.method === 'GET'));
+});
+
+for (const angular of [false, true]) test(`custom AI installs a published Action and requires its own key, angular=${angular}`, async () => {
+  const { api, calls } = fakeGitHub({ angular });
+  const settings = { ...defaultSettings, projectType: angular ? 'angularjs' as const : 'javascript' as const,
+    aiProvider: 'openai-compatible' as const, aiApiUrl: 'https://ai.example/v1/chat/completions', geminiModel: 'vendor/model' };
+  const preview = await inspectInstallation(api, 'user/app', settings);
+  assert.ok(calls.some(c => c.path.endsWith('/actions/secrets/AI_API_KEY')));
+  assert.ok(!calls.some(c => c.path.endsWith('/actions/secrets/GEMINI_API_KEY')));
+  assert.ok(preview.plan.files.some(f => f.after.includes(flexibleEngineRef)));
+  const blocked: GitHubClient = (path, method, body) => {
+    if (path.endsWith('/actions/secrets/AI_API_KEY')) throw new GitHubError(404);
+    return api(path, method, body);
+  };
+  await assert.rejects(inspectInstallation(blocked, 'user/app', settings), /AI_API_KEY/);
+  await createInstallation(api, 'user/app', settings, preview.baseSha, preview.digest);
+  assert.equal(calls.filter(c => c.method === 'POST' && c.path.endsWith('/pulls')).length, 1);
 });
 
 for (const alternate of [false, true]) test(`AngularJS installs only upstream workflow, alternate=${alternate}`, async () => {

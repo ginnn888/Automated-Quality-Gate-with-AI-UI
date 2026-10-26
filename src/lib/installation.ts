@@ -1,14 +1,19 @@
 import { createHash } from 'node:crypto';
-import { installationFiles, settingsSchema, type Settings } from './config';
+import { aiSecretName, flexibleEngineRef, installationFiles, settingsSchema, type Settings } from './config';
 import { createPlannedPR, inspectRepository, PreparationError, type GitHubClient } from './preparation-github';
 import { classifyInstallation } from './installation-status';
 import type { PreparationPlan } from './preparation';
 
 export async function inspectInstallation(api: GitHubClient, repository: string, settings: Settings) {
   settings = settingsSchema.parse(settings);
+  if (settings.aiProvider === 'openai-compatible') {
+    const [repository, ref] = flexibleEngineRef.split('@');
+    try { await api(`/repos/${repository}/commits/${ref}`); }
+    catch { throw new PreparationError('ยังยืนยัน Action รุ่นรองรับ AI API ไม่ได้ ต้องเผยแพร่ commit ของ Action ไป GitHub และตรวจสิทธิ์เข้าถึงก่อน จึงจะสร้าง PR ติดตั้งได้', 409); }
+  }
   const base = await inspectRepository(api, repository, settings.projectType);
   if (base.plan.status !== 'ready') throw new PreparationError(settings.projectType === 'angularjs' ? base.plan.messages.join(' ') : 'ตรวจและ merge PR เตรียม npm/Jest ในขั้นตั้งค่าการตรวจก่อนติดตั้ง');
-  for (const name of settings.sonar ? ['GEMINI_API_KEY', 'SONAR_TOKEN'] : ['GEMINI_API_KEY']) {
+  for (const name of settings.sonar ? [aiSecretName(settings), 'SONAR_TOKEN'] : [aiSecretName(settings)]) {
     try { await api(`/repos/${repository}/actions/secrets/${name}`); }
     catch { throw new PreparationError(`ยังตรวจพบ ${name} ไม่ได้ กรุณาบันทึก key และตรวจสิทธิ์ Secrets ของ App`, 409); }
   }
