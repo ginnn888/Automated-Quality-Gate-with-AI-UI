@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { appUrl, sessionToken } from '@/lib/session';
-import { clientFor, createPreparationPR, inspectRepository, PreparationError } from '@/lib/preparation-github';
+import { clientFor, PreparationError } from '@/lib/preparation-github';
 import { settingsSchema } from '@/lib/config';
-import { createInstallation, inspectInstallation } from '@/lib/installation';
+import { createInstallation, inspectInstallation, installOnce } from '@/lib/installation';
 import { GitHubError, githubFailure } from '@/lib/github';
 
 export const runtime = 'nodejs';
-const schema = z.object({ repository: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/).max(210), settings: settingsSchema, action: z.enum(['inspect', 'create']), baseSha: z.string().regex(/^[a-f0-9]{40}$/).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
+const schema = z.object({ repository: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/).max(210), settings: settingsSchema, action: z.enum(['inspect', 'create', 'install']), baseSha: z.string().regex(/^[a-f0-9]{40}$/).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
 export async function POST(request: NextRequest) {
   const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
   if (request.headers.get('origin') !== new URL(appUrl()).origin) return json({ error: 'คำขอต้องมาจากหน้าเว็บนี้' }, 403);
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   } catch { return json({ error: 'รูปแบบคำขอไม่ถูกต้อง' }, 400); }
   try {
     const api = clientFor(token);
+    if (input.action === 'install') return json(await installOnce(api, input.repository, input.settings));
     if (input.action === 'create') {
       if (!input.baseSha || !input.digest) return json({ error: 'ตรวจไฟล์ก่อนสร้าง PR' }, 400);
       return json(await createInstallation(api, input.repository, input.settings, input.baseSha, input.digest));

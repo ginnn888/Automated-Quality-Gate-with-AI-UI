@@ -15,7 +15,7 @@ test('classifies installed, missing and incomplete without mistaking comments fo
   assert.equal(classifyInstallation(workflow, '{broken'), 'incomplete');
   assert.equal(classifyInstallation(workflow, '{"global":101}'), 'incomplete');
   assert.equal(classifyInstallation('# ' + workflow.replaceAll('\n', '\n# '), config), 'incomplete');
-  assert.equal(classifyInstallation(workflow.replace('test-github-marketplace@', 'other@'), config), 'incomplete');
+  assert.equal(classifyInstallation(workflow.replaceAll('test-github-marketplace@', 'other@'), config), 'incomplete');
   assert.equal(classifyInstallation('jobs: [', config), 'incomplete');
 });
 

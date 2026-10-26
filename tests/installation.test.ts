@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPreparationPR, inspectRepository, type GitHubClient } from '../src/lib/preparation-github';
-import { createInstallation, inspectInstallation } from '../src/lib/installation';
+import { createInstallation, inspectInstallation, installOnce } from '../src/lib/installation';
 import { defaultSettings, flexibleEngineRef, installationFiles } from '../src/lib/config';
 import { planPreparation } from '../src/lib/preparation';
 import { GitHubError } from '../src/lib/github';
 
-function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean; angular?: boolean; alternate?: boolean } = {}) {
+function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean; angular?: boolean; alternate?: boolean; bare?: boolean; oldCoverage?: string } = {}) {
   let prepared = planPreparation({ paths: ['src/math.js'], packageJson: null, packageLock: null }).files;
   if (options.angular) {
     const pkg = { dependencies: { angular: '1.8.3' } };
@@ -16,6 +16,8 @@ function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: 
     ];
     if (options.alternate) prepared.push({ path: '.github/workflows/aq-review.yml', before: null, after: installationFiles({ ...defaultSettings, projectType: 'angularjs', aiTimeout: 60 })['.github/workflows/quality-gate.yml'] });
   }
+  if (options.bare) prepared=[];
+  if (options.oldCoverage) prepared.push({path:'config_cov.json',before:null,after:options.oldCoverage});
   const calls: { path: string; method: string; body: unknown }[] = [];
   let branch = false, opened = false, fail = options.failPR || false;
   const api: GitHubClient = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
@@ -58,6 +60,27 @@ for (const sonar of [false, true]) test(`installation PR with sonar=${sonar} is 
   assert.equal(calls.filter(c => c.path.endsWith('/pulls') && c.method === 'POST').length, 1);
   assert.ok(!calls.some(c => c.method === 'PATCH' || c.method === 'DELETE'));
 });
+
+test('one install click creates one PR containing preparation, workflow and coverage files for a bare repo', async () => {
+  const {api,calls}=fakeGitHub({bare:true});
+  const result=await installOnce(api,'user/app',defaultSettings);
+  assert.equal(result.pull?.number,1);
+  assert.deepEqual(result.preview.plan.files.map(f=>f.path).sort(),['package.json','package-lock.json','jest.config.cjs','.github/workflows/quality-gate.yml','config_cov.json'].sort());
+  assert.equal(calls.filter(c=>c.method==='POST'&&c.path.endsWith('/pulls')).length,1);
+  assert.ok(!calls.some(c=>c.method==='PATCH'));
+  const tree=calls.find(c=>c.method==='POST'&&c.path.endsWith('/git/trees'))!.body as {tree:{path:string}[]};
+  assert.equal(tree.tree.length,5);
+});
+
+test('combined installation retains existing per-file coverage settings and rejects malformed config', async () => {
+  const {api}=fakeGitHub({oldCoverage:JSON.stringify({global:50,files:{'src/math.js':70},extra:true})});
+  const preview=await inspectInstallation(api,'user/app',{...defaultSettings,coverage:91});
+  const config=JSON.parse(preview.plan.files.find(f=>f.path==='config_cov.json')!.after);
+  assert.deepEqual(config,{global:91,files:{'src/math.js':70},extra:true});
+  const invalid=fakeGitHub({oldCoverage:'{broken'});
+  await assert.rejects(installOnce(invalid.api,'user/app',defaultSettings),/config_cov.json/);
+  assert.ok(invalid.calls.every(c=>c.method==='GET'));
+});
 test('missing secret blocks installation before mutation', async () => {
   const { api, calls } = fakeGitHub();
   const blocked: GitHubClient = async (path, method, body) => {
@@ -89,10 +112,12 @@ for (const alternate of [false, true]) test(`AngularJS installs only upstream wo
   const { api, calls } = fakeGitHub({ angular: true, alternate });
   const settings = { ...defaultSettings, projectType: 'angularjs' as const };
   const preview = await inspectInstallation(api, 'user/app', settings);
-  assert.equal(preview.plan.files.length, 1);
-  assert.equal(preview.plan.files[0].path, alternate ? '.github/workflows/aq-review.yml' : '.github/workflows/quality-gate.yml');
+  assert.equal(preview.plan.files.length, 7);
+  assert.ok(preview.plan.files.some(f => f.path === (alternate ? '.github/workflows/aq-review.yml' : '.github/workflows/quality-gate.yml')));
   assert.ok(!calls.some(call => call.path.includes('SONAR_TOKEN')));
   await createInstallation(api, 'user/app', settings, preview.baseSha, preview.digest);
   const tree = calls.find(call => call.path.endsWith('/git/trees') && call.method === 'POST')!.body as { tree: { path: string }[] };
-  assert.deepEqual(tree.tree.map(file => file.path), [preview.plan.files[0].path]);
+  assert.ok(tree.tree.some(file => file.path === preview.plan.files[0].path));
+  assert.ok(tree.tree.some(file => file.path === 'quality-gate/run.cjs'));
+  assert.ok(tree.tree.some(file => file.path === 'config_cov.json'));
 });

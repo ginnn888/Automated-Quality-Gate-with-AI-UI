@@ -6,9 +6,9 @@ import { defaultSettings, installationFiles, settingsSchema } from '../src/lib/c
 test('JavaScript runs once per PR event, with the same activity types as AngularJS', () => {
   const js = parse(installationFiles(defaultSettings)['.github/workflows/quality-gate.yml']);
   const angular = parse(installationFiles({ ...defaultSettings, projectType: 'angularjs' })['.github/workflows/quality-gate.yml']);
-  assert.deepEqual(Object.keys(js.on), ['pull_request']);
-  assert.deepEqual(js.on.pull_request.types, angular.on.pull_request_target.types);
-  assert.ok(js.jobs.quality.if.includes('github.event.pull_request.head.repo.full_name == github.repository'));
+  assert.deepEqual(Object.keys(js.on), ['pull_request_target']);
+  assert.deepEqual(js.on.pull_request_target.types, angular.on.pull_request_target.types);
+  assert.ok(js.jobs.generate.if.includes('github.event.pull_request.head.repo.full_name == github.repository'));
   assert.ok(js.concurrency.group.includes('github.event.pull_request.number'));
 });
 
@@ -37,5 +37,9 @@ test('preview is pinned and guards fork secrets', () => {
   assert.match(workflow, /marketplace@[a-f0-9]{40}/);
   assert.ok(workflow.includes('github.event.pull_request.head.repo.full_name == github.repository'));
   assert.ok(workflow.includes('${{ secrets.GEMINI_API_KEY }}'));
-  assert.ok(!workflow.includes('pull_request_target'));
+  assert.ok(workflow.includes('pull_request_target'));
+  const flow = parse(workflow);
+  assert.deepEqual(flow.jobs.checks.permissions, { contents: 'read' });
+  assert.ok(!JSON.stringify(flow.jobs.generate).includes('actions/checkout'));
+  assert.ok(!JSON.stringify(flow.jobs.report).includes('actions/checkout'));
 });

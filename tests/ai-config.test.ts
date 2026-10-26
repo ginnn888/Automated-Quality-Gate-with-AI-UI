@@ -12,15 +12,15 @@ const custom = { ...defaultSettings, aiProvider: 'openai-compatible' as const, a
 test('JavaScript forwards arbitrary model, exact URL and secret reference, retaining PR guards', () => {
   assert.match(flexibleEngineRef, /@[a-f0-9]{40}$/);
   const workflow = parse(installationFiles(custom)['.github/workflows/quality-gate.yml']);
-  const step = workflow.jobs.quality.steps.find((s: { uses?: string }) => s.uses === flexibleEngineRef);
+  const step = workflow.jobs.generate.steps.find((s: { uses?: string }) => s.uses === flexibleEngineRef);
   assert.equal(step.with.ai_provider, 'openai-compatible');
   assert.equal(step.with.ai_model, custom.geminiModel);
   assert.equal(step.with.ai_api_url, custom.aiApiUrl);
   assert.equal(step.with.ai_api_key, '${{ secrets.AI_API_KEY }}');
   assert.equal(step.with.ai_timeout_seconds, '90');
   assert.equal(step.with.gemini_api_key, undefined);
-  assert.ok(workflow.jobs.quality.if.includes('head.repo.full_name'));
-  assert.deepEqual(Object.keys(workflow.on), ['pull_request']);
+  assert.ok(workflow.jobs.generate.if.includes('head.repo.full_name'));
+  assert.deepEqual(Object.keys(workflow.on), ['pull_request_target']);
 });
 
 test('AngularJS custom service preserves isolated checks and three phases on the same new Action commit', () => {
@@ -41,9 +41,9 @@ test('AngularJS custom service preserves isolated checks and three phases on the
   assert.ok(!JSON.stringify(workflow.jobs.report).includes('secrets.AI_API_KEY'));
 });
 
-test('native Gemini remains on the published original commit and now forwards JavaScript model settings', () => {
+test('native Gemini forwards the same isolated model contract as compatible providers', () => {
   const workflow = parse(installationFiles({ ...defaultSettings, geminiModel: 'gemini-custom', aiTimeout: 120 })['.github/workflows/quality-gate.yml']);
-  const step = workflow.jobs.quality.steps.find((s: { uses?: string }) => s.uses === engineRef);
+  const step = workflow.jobs.generate.steps.find((s: { uses?: string }) => s.uses === engineRef);
   assert.equal(step.with.gemini_model, 'gemini-custom');
   assert.equal(step.with.ai_timeout_seconds, '120');
   assert.equal(aiSecretName(defaultSettings), 'GEMINI_API_KEY');
@@ -57,7 +57,7 @@ test('validation rejects embedded credentials, query strings, expressions, unsaf
   for (const geminiModel of ['', ' ', 'x\nrun: bad', '${{ secrets.GITHUB_TOKEN }}']) assert.equal(settingsSchema.safeParse({ ...custom, geminiModel }).success, false);
   const strange = 'vendor/model:"quoted"';
   const workflow = parse(installationFiles({ ...custom, geminiModel: strange })['.github/workflows/quality-gate.yml']);
-  assert.equal(workflow.jobs.quality.steps.at(-1).with.ai_model, strange);
+  assert.equal(workflow.jobs.generate.steps[0].with.ai_model, strange);
 });
 
 test('unpublished Action version stops custom installation before repository mutations or secrets', async () => {

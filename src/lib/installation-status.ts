@@ -19,7 +19,8 @@ export function classifyInstallation(workflow: string | null, config: string | n
     if (!usesEngine || !data.on) return 'incomplete';
     const actionSteps = Object.values(jobs).flatMap(job => (job as { steps?: { uses?: string; with?: Record<string, unknown> }[] }).steps || []).filter(step => typeof step.uses === 'string' && step.uses.toLowerCase().startsWith(engine));
     if (actionSteps.some(step => step.with?.project_type === 'angularjs')) {
-      return ['generate', 'checks', 'report'].every(phase => actionSteps.some(step => step.with?.project_type === 'angularjs' && step.with?.phase === phase)) ? 'active' : 'incomplete';
+      if (!['generate', 'checks', 'report'].every(phase => actionSteps.some(step => step.with?.project_type === 'angularjs' && step.with?.phase === phase))) return 'incomplete';
+      if (!actionSteps.some(step => step.with?.persist_tests === 'true')) return 'active';
     }
     if (config === null) return 'incomplete';
     const coverage = JSON.parse(config);

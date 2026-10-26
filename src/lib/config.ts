@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import angularTemplate from './workflow-templates/angularjs.json';
+import { stringify } from 'yaml';
 
 export const settingsSchema = z.object({
   projectType: z.enum(['javascript', 'angularjs']).default('javascript'),
@@ -21,74 +21,53 @@ function validApiUrl(value: string) {
 }
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', aiTimeout: 90, coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@aa02584e5fe1b41af88b6a2091302484920e2915';
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@2f75838610968e9183e5c2eeb4b9433011d1dd66';
 // Tested local Action commit. Installation verifies GitHub publication before creating a PR.
-export const flexibleEngineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@3d88cb218b4fa1ea2db009ab1531b9c332b52ffe';
+export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
 
 export function installationFiles(input: Settings) {
   const s = settingsSchema.parse(input);
-  if (s.projectType === 'angularjs') {
-    let workflow = angularTemplate.workflow
-      .replaceAll("${{ vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}", JSON.stringify(s.geminiModel))
-      .replaceAll("ai_timeout_seconds: '90'", `ai_timeout_seconds: '${s.aiTimeout}'`);
-    if (s.aiProvider === 'openai-compatible') {
-      workflow = workflow.replaceAll(engineRef, flexibleEngineRef)
-        .replaceAll('gemini_api_key: ${{ secrets.GEMINI_API_KEY }}', 'ai_api_key: ${{ secrets.AI_API_KEY }}')
-        .replaceAll(`gemini_model: ${JSON.stringify(s.geminiModel)}`, `ai_provider: openai-compatible\n          ai_api_url: ${JSON.stringify(s.aiApiUrl)}\n          ai_model: ${JSON.stringify(s.geminiModel)}`);
-    }
-    return { '.github/workflows/quality-gate.yml': workflow } as Record<string, string>;
-  }
-  const workflow = `# Calls the upstream JavaScript Action; reports are produced by the Action.
-name: Automated Quality Gate
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-permissions:
-  contents: read
-  pull-requests: write
-concurrency:
-  group: quality-\${{ github.workflow }}-pr-\${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-jobs:
-  quality:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - id: dependencies
-        run: npm ci
-${s.sonar ? `      - name: SonarCloud Scan
-        if: always()
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: \${{ secrets.SONAR_TOKEN }}
-` : ''}      - name: Run Automated Quality Gate
-        if: always()
-        uses: ${s.aiProvider === 'openai-compatible' ? flexibleEngineRef : engineRef}
-        with:
-          project_type: javascript
-${s.aiProvider === 'openai-compatible' ? `          ai_provider: openai-compatible
-          ai_api_url: ${JSON.stringify(s.aiApiUrl)}
-          ai_model: ${JSON.stringify(s.geminiModel)}
-          ai_api_key: \${{ secrets.AI_API_KEY }}
-` : `          gemini_model: ${JSON.stringify(s.geminiModel)}
-          gemini_api_key: \${{ secrets.GEMINI_API_KEY }}
-`}          ai_timeout_seconds: '${s.aiTimeout}'
-          github_token: \${{ secrets.GITHUB_TOKEN }}
-${s.sonar ? '          sonar_token: \${{ secrets.SONAR_TOKEN }}\n' : ''}`;
-  const files: Record<string, string> = {
-    '.github/workflows/quality-gate.yml': workflow,
-    'config_cov.json': JSON.stringify({ global: s.coverage, files: {} }, null, 2),
+  const uses = engineRef;
+  const secret = aiSecretName(s);
+  const identity = { project_type: s.projectType, test_source: 'generated' };
+  const ai = s.aiProvider === 'gemini'
+    ? { gemini_model: s.geminiModel }
+    : { ai_provider: s.aiProvider, ai_api_url: s.aiApiUrl, ai_model: s.geminiModel };
+  const token = '${{ github.token }}';
+  const guard = "github.actor != 'github-actions[bot]' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository";
+  const upload = (name: string, path: string) => ({ uses: 'actions/upload-artifact@v4', if: 'always()', with: { name, path, 'include-hidden-files': true, 'if-no-files-found': 'warn', 'retention-days': 7 } });
+  const download = (name: string, path: string) => ({ uses: 'actions/download-artifact@v4', if: 'always()', 'continue-on-error': true, with: { name, path } });
+  const workflow = {
+    name: 'Automated Quality Gate',
+    on: { pull_request_target: { types: ['opened', 'synchronize', 'reopened', 'ready_for_review'] } },
+    permissions: {},
+    concurrency: { group: 'quality-${{ github.workflow }}-pr-${{ github.event.pull_request.number }}', 'cancel-in-progress': true },
+    jobs: {
+      generate: { if: guard, 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
+        permissions: { contents: 'read', 'pull-requests': 'read' },
+        steps: [{ name: 'Generate tests and review without executing PR code', uses,
+          with: { ...identity, ...ai, phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token, ai_timeout_seconds: String(s.aiTimeout) } },
+          upload('aq-generated-tests', '.aq-generated/') ] },
+      checks: { needs: 'generate', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 15,
+        permissions: { contents: 'read' },
+        steps: [ { uses: 'actions/checkout@v4', with: { repository: '${{ github.event.pull_request.head.repo.full_name }}', ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false } },
+          { uses: 'actions/setup-node@v4', with: { 'node-version': '24' } },
+          { id: 'install', run: 'npm ci --ignore-scripts', 'continue-on-error': true },
+          download('aq-generated-tests', '.aq-generated'),
+          { name: 'Run tests and measure coverage without AI keys or write permissions', uses, if: 'always()', with: { ...identity, phase: 'checks', install_status: '${{ steps.install.outcome }}' } },
+          ...(s.sonar ? [{ name: 'SonarCloud Scan', uses: 'SonarSource/sonarqube-scan-action@v6', if: 'always()', env: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' } }] : []),
+          upload('quality-gate-results', '.gate-state.json\ncoverage/') ] },
+      report: { needs: ['generate', 'checks'], if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 5,
+        permissions: { contents: 'write', 'pull-requests': 'write', checks: 'write' },
+        steps: [ download('aq-generated-tests', '.aq-generated'), download('quality-gate-results', '.'),
+          { name: 'Save tests to PR and publish results', uses, with: { ...identity, ...ai, phase: 'report', github_token: token, persist_tests: 'true', report_only: 'false', ...(s.sonar ? { sonar_token: '${{ secrets.SONAR_TOKEN }}' } : {}) } } ] },
+    },
   };
-  if (s.sonar) files['sonar-project.properties'] = `sonar.projectKey=${s.projectKey}\nsonar.organization=${s.organization}\nsonar.sources=src\nsonar.javascript.lcov.reportPaths=coverage/lcov.info\n`;
+  const files: Record<string, string> = {
+    '.github/workflows/quality-gate.yml': '# PR code only executes in the read-only checks job.\n' + stringify(workflow),
+    'config_cov.json': JSON.stringify({ global: s.coverage, files: {} }, null, 2) + '\n',
+  };
+  if (s.sonar) files['sonar-project.properties'] = 'sonar.projectKey=' + s.projectKey + '\nsonar.organization=' + s.organization + '\nsonar.sources=src\nsonar.javascript.lcov.reportPaths=coverage/lcov.info\n';
   return files;
 }
-

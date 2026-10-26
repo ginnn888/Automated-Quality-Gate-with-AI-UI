@@ -4,13 +4,11 @@ import { parse } from 'yaml';
 import { defaultSettings, engineRef, installationFiles } from '../src/lib/config';
 import { planAngularPreparation } from '../src/lib/preparation';
 import { classifyInstallation } from '../src/lib/installation-status';
-import template from '../src/lib/workflow-templates/angularjs.json';
 
 const settings = { ...defaultSettings, projectType: 'angularjs' as const };
 const generated = () => installationFiles(settings)['.github/workflows/quality-gate.yml'];
-test('AngularJS follows the upstream three-phase contract and only substitutes user settings', () => {
+test('AngularJS installs coverage config and uses the isolated three-phase contract', () => {
   const actual = generated();
-  assert.equal(actual, template.workflow.replaceAll("${{ vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}", JSON.stringify(settings.geminiModel)));
   const flow = parse(actual);
   assert.deepEqual(Object.keys(flow.jobs), ['generate', 'checks', 'report']);
   assert.ok(flow.on.pull_request_target);
@@ -20,8 +18,8 @@ test('AngularJS follows the upstream three-phase contract and only substitutes u
     assert.equal(action.with.project_type, 'angularjs');
     assert.equal(action.with.test_source, 'generated');
   }
-  assert.deepEqual(Object.keys(installationFiles(settings)), ['.github/workflows/quality-gate.yml']);
-  assert.equal(classifyInstallation(actual, null), 'active');
+  assert.deepEqual(Object.keys(installationFiles(settings)), ['.github/workflows/quality-gate.yml', 'config_cov.json']);
+  assert.equal(classifyInstallation(actual, installationFiles(settings)['config_cov.json']), 'active');
 });
 
 test('untrusted test execution is isolated from Gemini secrets and comment write privileges', () => {
@@ -34,8 +32,11 @@ test('untrusted test execution is isolated from Gemini secrets and comment write
     assert.ok(!job.steps.some((s: { uses?: string; run?: string }) => s.run || s.uses?.startsWith('actions/checkout')));
   }
   assert.equal(report.permissions['pull-requests'], 'write');
-  assert.equal(report.if, 'always()');
-  assert.equal(report.steps.at(-1).with.report_only, 'true');
+  assert.match(report.if, /always\(\)/);
+  assert.ok(report.if.includes("github-actions[bot]"));
+  assert.equal(report.permissions.contents, 'write');
+  assert.equal(report.permissions.checks, 'write');
+  assert.equal(report.steps.at(-1).with.report_only, 'false');
   for (const job of [generate, checks]) assert.equal(job.steps.at(-1).with['include-hidden-files'], true);
 });
 

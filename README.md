@@ -1,104 +1,276 @@
-## AI ที่ผู้ใช้กำหนดเอง (26 ตุลาคม 2026)
-
-ตั้งชื่อโมเดลได้เองทั้ง JavaScript และ AngularJS รองรับ Gemini API เดิมและบริการแบบ OpenAI-compatible Chat Completions ผ่าน HTTPS URL ของผู้ใช้ โดยใช้ `AI_API_KEY` สำหรับบริการอื่น ไม่มีการล็อกรายชื่อโมเดลหรือทดสอบ key ขณะบันทึก รุ่นใหม่ของ Action ต้องเผยแพร่ไป GitHub ก่อนสร้าง PR ติดตั้งแบบ AI API อื่น เว็บจะตรวจว่ามี commit นั้นแล้วก่อนดำเนินการ
-
-ดู [รายการตรวจหลังแก้และขั้นตอนทดลองจริง](docs/AI-MODELS-CHECKLIST.md) สำหรับขอบเขต ผลที่ควรเห็น และจุดย้อนกลับ ข้อความประวัติด้านล่างบางส่วนอธิบายรุ่นก่อนหน้า
-
-## เหตุการณ์ที่เริ่มตรวจ (20 ตุลาคม 2026)
-
-JavaScript ใช้ pull_request เฉพาะ opened, synchronize, reopened, ready_for_review เช่นเดียวกับชนิดกิจกรรมของ AngularJS; ไม่มี push หรือ workflow_dispatch จึงไม่รันซ้ำจาก push และ PR ในครั้งเดียว และไม่รันหลัง merge โดยตรง คงการข้าม fork/Dependabot สำหรับ workflow JavaScript ที่รันโค้ดและใช้ key ใน job เดียว ส่วน AngularJS คง pull_request_target และสาม jobs ตามต้นฉบับ
-repo ที่ติดตั้งแล้วต้องสร้างและ merge PR อัปเดต workflow ผ่านเว็บก่อน การแก้ template ไม่เปลี่ยน repo ผู้ใช้อัตโนมัติ
-SonarCloud Automatic Analysis แยกจาก CI analysis; ช่อง Sonar ในเว็บยังใช้สำหรับ CI analysis ที่ต้องมี token และ project/organization config
-
-## AngularJS และการใช้ Action ต้นฉบับ (19 ตุลาคม 2026)
-
-หน้าเว็บเลือก JavaScript/Jest หรือ AngularJS 1.x ได้ โดยเรียก Action ที่ commit aa02584e5fe1b41af88b6a2091302484920e2915 และให้ Action ตรวจ สร้างผลลัพธ์ และโพสต์คอมเมนต์ทั้งหมด ไม่มี summary/ตัวตัดสินผลตรวจที่เว็บเพิ่มเอง
-
-AngularJS ใช้สาม jobs ตาม docs/angularjs.md และ workflow ของ angularjs-ai-review-demo: generate → checks → report ส่ง artifacts รวม hidden files และตรวจสิทธิ์แยก job ไม่ execute โค้ด PR ใน job ที่มี Gemini secret หรือสิทธิ์เขียนคอมเมนต์
-- ตั้งชนิดโปรเจกต์ AngularJS, Gemini model และ timeout 10–180 วินาที แล้วบันทึก GEMINI_API_KEY
-- โหมดนี้ไม่มี coverage/SonarCloud ตามข้อจำกัดของ Action รุ่นนี้ และใช้ report_only: true ตามต้นฉบับ สถานะ job สำเร็จไม่เท่ากับทุกผลตรวจผ่าน ให้ดูรายงาน
-- แอปต้องมี package.json, package-lock.json ที่ตรงกัน, dependency angular และโค้ด src/*.js เว็บไม่เพิ่ม Jest หรือ test config สำหรับ AngularJS
-- สร้าง PR ติดตั้ง/อัปเดต → merge เข้า base branch → เปิดหรืออัปเดต PR งาน ระบบใช้ pull_request_target จาก base branch ไม่รันจาก push อย่างเดียว
-- repo ที่มี quality-gate.yml จะอัปเดตไฟล์เดิม; หากมี aq-review.yml ที่รู้จักจะอัปเดตไฟล์นั้น หากมีทั้งสองจะให้แก้ความซ้ำก่อน ไม่เพิ่ม workflow ซ้ำ
-- config_cov.json และ sonar-project.properties เดิมเก็บไว้เมื่อเปลี่ยนเป็น AngularJS แต่ workflow AngularJS ไม่เรียกใช้ ส่วน JavaScript ยังใช้ config ของ engine เดิม
-- สถานะติดตั้งรองรับ quality-gate.yml และ aq-review.yml พร้อมสาม phase โดย AngularJS ไม่ต้องมี config_cov.json
-- ตรวจด้วย unit/integration mocks และ production build; ยังต้องทดลอง GitHub end-to-end ด้วย App/keys ของเจ้าของบัญชี ไม่มีการสร้าง PR ใน repo ผู้ใช้ระหว่างพัฒนา
-
-## สถานะล่าสุด: เปิดทดลองติดตั้ง Action เดิมแล้ว
-
-ขั้นตรวจสอบก่อนติดตั้ง → ตรวจความพร้อมติดตั้ง → ตรวจไฟล์เดิม/ใหม่ → สร้าง PR ติดตั้ง → เปิด PR และ merge เอง
-ต้องเตรียม npm/Jest ให้พร้อมและ merge PR เตรียมโปรเจกต์ก่อน พร้อมบันทึก GEMINI_API_KEY และ SONAR_TOKEN เมื่อเปิด SonarCloud
-GitHub App ต้องมี Contents, Pull requests, Workflows และ Secrets ตามสิทธิ์ Read and write ที่ GitHub มีให้ แล้วผู้ติดตั้งอนุมัติสิทธิ์ใหม่
-ทดสอบปิด/เปิด SonarCloud ได้โดยเปลี่ยนการตั้งค่าแล้วสร้าง PR ใหม่ ผลแสดงที่ Actions → workflow run และ logs รายงาน AI ใน PR ขึ้นกับ engine เดิม ไม่รับรองว่าจะตรวจสำเร็จ
-ไม่มีการแก้ repo engine, ไม่มีการ merge อัตโนมัติ และไม่มีการสร้าง PR จริงระหว่างพัฒนา การตรวจสถานะติดตั้งบน dashboard ยังไม่ทำ
-JavaScript เรียก Action หลังการสแกนตาม workflow ต้นฉบับ ผลและรายงานจัดการโดย Action
-
 # Automated Quality Gate · Web UI
 
-เว็บ Next.js + Tailwind CSS + TypeScript สำหรับตั้งค่าการตรวจคุณภาพโค้ดด้วย AI ผ่าน GitHub Actions
+เว็บสำหรับเชื่อมต่อ GitHub ตั้งค่า AI และติดตั้งระบบตรวจคุณภาพโค้ดผ่าน Pull Request
+
+ผู้ใช้ตั้งค่าผ่านเว็บ ส่วนการวิเคราะห์โค้ด สร้างเทสต์ วัด coverage และรายงานผล ทำงานบน GitHub Actions ใน repository ของผู้ใช้
+
+## สารบัญ
+
+- [ภาพรวมระบบ](#ภาพรวมระบบ)
+- [ความสามารถ](#ความสามารถ)
+- [เริ่มใช้งานในเครื่อง](#เริ่มใช้งานในเครื่อง)
+- [ตั้งค่า GitHub App](#ตั้งค่า-github-app)
+- [วิธีติดตั้งใน repository](#วิธีติดตั้งใน-repository)
+- [การตั้งค่า AI และ API keys](#การตั้งค่า-ai-และ-api-keys)
+- [เทสต์และ coverage](#เทสต์และ-coverage)
+- [Deploy](#deploy)
+- [ข้อจำกัดและการแก้ปัญหา](#ข้อจำกัดและการแก้ปัญหา)
+- [สำหรับผู้พัฒนา](#สำหรับผู้พัฒนา)
+
+## ภาพรวมระบบ
+
+ระบบแบ่งเป็นสอง repository ที่ทำงานร่วมกัน:
+
+| ส่วน | หน้าที่ |
+| --- | --- |
+| **Web UI — repository นี้** | Login ด้วย GitHub เลือก repo ตั้งค่า AI บันทึก secrets และสร้าง PR ติดตั้ง |
+| [**Quality Gate Action**](https://github.com/NonnaritRammaneekultawat-6609650459/test-github-marketplace) | วิเคราะห์โค้ด สร้างและรันเทสต์ วัด coverage เพิ่มเทสต์เข้า PR และโพสต์รายงาน |
+
+```mermaid
+flowchart LR
+  A[ตั้งค่าบนเว็บ] --> B[กด Install]
+  B --> C[ตรวจไฟล์และสร้าง PR ติดตั้งเดียว]
+  C --> D[ผู้ใช้ตรวจและ merge]
+  D --> E[เปิด PR งานแก้โค้ด]
+  E --> F[AI สร้างเทสต์และระบบรันตรวจ]
+  F --> G[เห็นเทสต์และรายงานใน PR]
+  G --> H[merge โค้ดและเทสต์เข้า branch หลัก]
+```
+
+## ความสามารถ
+
+- แสดง repository ที่บัญชีผู้ใช้และ GitHub App มีสิทธิ์เข้าถึงร่วมกัน
+- รองรับ **JavaScript/Jest** และ **AngularJS 1.x** ตามโครงสร้างที่ระบบรองรับ
+- กำหนดชื่อโมเดลเอง ใช้ Gemini API หรือบริการแบบ OpenAI-compatible Chat Completions
+- บันทึก API keys แบบเข้ารหัสไปยัง GitHub Repository Secrets
+- **Install ปุ่มเดียว**: ตรวจและรวมไฟล์เตรียมโปรเจกต์ workflow และ coverage config ใน PR เดียว
+- แสดงสถานะไฟล์ติดตั้งบน default branch พร้อมปุ่มรีเฟรช
+- มีโหมดข้อมูลตัวอย่างใน workspace ซึ่งไม่สร้าง PR หรือรับ key จริง
+
+> การเชื่อมต่อ GitHub App ยังไม่ใช่การติดตั้ง workflow และการติดตั้งสำเร็จยังไม่ใช่การยืนยันว่าคุณภาพโค้ดผ่าน
 
 ## เริ่มใช้งานในเครื่อง
 
-ต้องมี Node.js 22 ขึ้นไปและ npm
+### 1. เตรียมเครื่อง
+
+ใช้ Node.js 22 ขึ้นไป และ npm
 
 ```powershell
-cd D:\Work\project\Automated-Quality-Gate-witj-AI-UI
-npm install
-npm run dev
+npm ci
+Copy-Item .env.example .env.local
 ```
 
-เปิด http://localhost:3000 แล้วเลือก **ทดลองดูตัวอย่าง** เพื่อทดลองโดยไม่ต้องใช้บัญชีหรือ keys ข้อมูลตัวอย่างไม่ได้มาจาก GitHub และไม่มีการเขียนข้อมูลกลับไปยัง repo
+### 2. ใส่ค่าตั้งค่า
 
-## สิ่งที่ทำแล้ว
+แก้ `.env.local` โดยใช้ค่าจาก GitHub App ของคุณ:
 
-- Dashboard, ค้นหา repository, หน้าการเชื่อมต่อ และคู่มือภาษาไทย
-- Wizard เลือก repo → coverage / SonarCloud → คำแนะนำ keys → ดูไฟล์และดาวน์โหลดตัวอย่าง JSON
-- รองรับหน้าจอเล็ก, focus indicator, modal focus trap และปิดด้วย Escape
-- GitHub App OAuth login, ตรวจ state, session cookie เข้ารหัสแบบ HttpOnly และหมดอายุในหนึ่งชั่วโมง
-- API อ่าน repo ที่ user และ GitHub App มีสิทธิ์ร่วมกัน พร้อม pagination
-- Secrets ไม่อยู่ใน localStorage, export หรือฐานข้อมูล รับ Gemini/Sonar key และส่งแบบ sealed-box ไป GitHub Actions Secrets ของ repo ที่เลือกได้
-- Action reference ตรึงกับ commit ที่ตรวจสอบแล้ว แต่ยังไม่ถือว่า engine พร้อมใช้งาน
+```dotenv
+APP_URL=http://localhost:3000
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_APP_SLUG=
+SESSION_SECRET=
+```
 
-## ขอบเขตที่ตั้งใจเว้นไว้
+| ตัวแปร | ความหมาย |
+| --- | --- |
+| `APP_URL` | URL ของเว็บ ต้องตรงกับ hostname/port ที่เปิดใช้ |
+| `GITHUB_CLIENT_ID` | Client ID ของ GitHub App |
+| `GITHUB_CLIENT_SECRET` | Client secret ของ GitHub App |
+| `GITHUB_APP_SLUG` | ชื่อ slug ที่อยู่ใน URL ของ GitHub App |
+| `SESSION_SECRET` | ค่าสุ่มสำหรับเข้ารหัส session อย่างน้อย 32 ตัวอักษร |
 
-ตามที่ตกลง ทำเว็บก่อนและกลับมาแก้ Action ร่วมกันภายหลัง ขณะนี้ **สร้าง PR ติดตั้ง Action เดิมเพื่อทดลองได้ ไม่เก็บ secrets ในเว็บ (ส่งไป GitHub ได้แล้ว) ไม่รายงานผลตรวจจริง (แต่สร้าง PR เตรียม npm/Jest ได้แล้ว) และไม่บอกว่า repo ติดตั้งแล้วจากเพียงการ authorize แอป**
-
-`POST /api/install` ตอบ 409 โดยไม่อ่าน credentials จึงไม่สามารถข้ามปุ่ม disabled มาเขียน repo ได้ ไฟล์ดาวน์โหลดเป็นตัวอย่างเพื่อรีวิว ไม่ควรรันก่อนแก้ข้อจำกัดของ Action ใน `docs/ENGINE-FOLLOWUP.md`
-
-Dashboard จริงแสดงรายชื่อ repo ที่แอปเข้าถึงได้ ส่วนสถานะติดตั้ง/ผลตรวจมีเฉพาะข้อมูลตัวอย่างที่ติดป้ายชัดเจน ไม่มี database หรือ webhook ในรุ่นนี้
-
-## สิ่งที่เจ้าของเว็บต้องตั้งค่าเอง
-
-1. ไป https://github.com/settings/apps/new เพื่อสร้าง **GitHub App** (ไม่ใช่ OAuth App)
-2. Homepage URL สำหรับพัฒนา: `http://localhost:3000`
-3. Callback URL: `http://localhost:3000/api/auth/callback`
-4. ตั้ง **Setup URL** เป็น `http://localhost:3000/api/github/return` และเปิด **Redirect on update** ส่วน **Request user authorization (OAuth) during installation** ให้ปิดไว้ เพราะเว็บทำ Login ก่อนส่งไปเลือก repo
-5. สำหรับฟีเจอร์เตรียมโปรเจกต์ ตั้ง Repository permissions: **Contents: Read and write**, **Pull requests: Read and write** และ Metadata: read (อัตโนมัติ) แล้วให้ผู้ติดตั้งอนุมัติสิทธิ์ใหม่ การบันทึก key ต้องเพิ่ม **Secrets: Read and write** และอนุมัติสิทธิ์ใหม่; การสร้าง workflow ต้องมี Workflows: Read and write และปิด webhook ไว้ได้
-6. เลือก Any account หากจะให้คนอื่นใช้ จากนั้นกดเชื่อมต่อ GitHub บนเว็บ เว็บจะพาไปอนุญาต App และเลือก repo ให้
-7. คัดลอก `.env.example` เป็น `.env.local` สร้าง Client secret ของ App
-8. เติม `APP_URL`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_APP_SLUG` และ `SESSION_SECRET`
-9. สร้าง Session secret อย่างน้อย 32 ตัวอักษรด้วยคำสั่งด้านล่าง แล้ว restart dev server
+สร้าง session secret ได้ด้วย:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-ใช้ hostname เดียวกันสำหรับ APP_URL, callback และเบราว์เซอร์ เช่น `localhost` ทั้งหมด อย่าสลับกับ `127.0.0.1` ระหว่าง login
+คัดลอกผลลัพธ์ไปใส่ใน `SESSION_SECRET` อย่าส่งค่าความลับลงแชตหรือ commit `.env.local`
 
-GitHub App อาจถูกองค์กรจำกัดสิทธิ์หรือรอผู้ดูแลอนุมัติ ผู้ใช้ต้องอนุญาต repo ก่อนเว็บจะอ่านได้ เมื่อ session หมดอายุให้เข้าสู่ระบบใหม่ รุ่นนี้ยังไม่ refresh token อัตโนมัติ
+### 3. เปิดเว็บ
 
-App secret เป็นความลับของเจ้าของระบบ ไม่ต้องส่งในแชตและห้าม commit `.env.local` ขึ้น GitHub ส่วน Gemini/Sonar keys เป็นของผู้ใช้ปลายทาง บันทึกลง Repository Secrets ผ่านขั้นเชื่อมต่อบริการได้แล้ว
+```powershell
+npm run dev
+```
 
-## เฟสติดตั้งจริง
+เปิด [http://localhost:3000](http://localhost:3000) และเข้าสู่ระบบด้วย GitHub หลังเปลี่ยน environment variables ให้ restart เซิร์ฟเวอร์
 
-- แก้ engine และตรวจไฟล์ dist ให้ตรงกับ source
-- เพิ่ม App private key / App ID และ permissions สำหรับ contents, workflows, pull requests และ actions secrets เท่าที่จำเป็น
-- สร้าง PR ติดตั้ง workflow พร้อมการจัดการ retry/conflict (ตรวจสิทธิ์ repo และอัปโหลด secrets แบบ sealed-box ทำแล้ว)
-- รับ webhook ที่ตรวจลายเซ็น หรืออ่าน API เพื่อแยก Pending PR / Installed / Removed / Failed
-- ทดสอบ PR, push, merge, fork, Dependabot และ token หมดอายุ
-- ตั้ง branch rules แยกต่างหากหากต้องการบล็อก merge เมื่อ quality gate ไม่ผ่าน
+## ตั้งค่า GitHub App
 
-## ตรวจสอบ
+สร้าง **GitHub App** ที่ [GitHub App settings](https://github.com/settings/apps) แล้วตั้งค่าสำหรับเครื่องพัฒนา:
+
+| ช่อง | ค่า |
+| --- | --- |
+| Homepage URL | `http://localhost:3000` |
+| Callback URL | `http://localhost:3000/api/auth/callback` |
+| Setup URL | `http://localhost:3000/api/github/return` |
+| Redirect on update | เปิด |
+| Request user authorization during installation | ปิด — เว็บใช้ลำดับ Login ก่อนเลือก repo |
+
+ตั้ง Repository permissions ให้รองรับการทำงานของเว็บ:
+
+| Permission | สิทธิ์ที่ต้องใช้ |
+| --- | --- |
+| Contents | Read and write |
+| Pull requests | Read and write |
+| Workflows | Write ตามตัวเลือกที่ GitHub แสดง |
+| Secrets | Read and write |
+| Metadata | Read |
+
+หากเปลี่ยน permissions ของ App ให้เจ้าของ installation อนุมัติสิทธิ์ใหม่ด้วย รุ่นนี้ไม่ต้องใช้ webhook หรือ App private key
+
+ใช้ hostname ให้ตรงกันทุกจุด เช่น `localhost` ทั้งหมด อย่าสลับกับ `127.0.0.1` ระหว่าง Login
+
+## วิธีติดตั้งใน repository
+
+### ขั้นตอนสำหรับผู้ใช้
+
+1. เข้าสู่ระบบ แล้วอนุญาต GitHub App ให้เข้าถึง repository งาน
+2. เลือก repo และชนิดโปรเจกต์
+3. ตั้งค่า AI, เป้าหมาย coverage และ SonarCloud หากเป็น JavaScript ที่ต้องการใช้
+4. บันทึก API key ในขั้นเชื่อมต่อบริการ
+5. กด **Install / อัปเดต** เพียงครั้งเดียว
+6. เปิด PR ที่เว็บสร้าง ตรวจไฟล์ แล้ว merge ด้วยตนเอง
+7. เปิด PR งานจาก branch ที่อัปเดตแล้ว เพื่อเริ่มตรวจโค้ด
+
+### ระบบทำอะไรเมื่อกด Install?
+
+| สิ่งที่ตรวจพบ | การทำงาน |
+| --- | --- |
+| ขาดไฟล์ที่ระบบเตรียมให้ได้ | เพิ่มไฟล์นั้นใน PR ติดตั้ง |
+| มีไฟล์เดิมที่ใช้ได้ | เก็บของเดิมไว้ |
+| ต้องอัปเดตตามค่าที่เลือก | เสนอการแก้ใน PR เช่น workflow และ coverage threshold |
+| พบโครงสร้างหรือ dependencies ที่จัดการอัตโนมัติไม่ได้ | แจ้งเหตุผล โดยไม่เขียนทับแบบเดา |
+
+**ไม่มี PR เตรียมโปรเจกต์แยกก่อน และไม่มีปุ่ม Force install** การตรวจความพร้อมทำหลังคลิก Install โดยยังรักษา dependencies, scripts และ test config เดิมที่ใช้ได้
+
+### ไฟล์ที่ติดตั้ง
+
+| ชนิดโปรเจกต์ | ไฟล์หลัก |
+| --- | --- |
+| JavaScript/Jest | workflow, `config_cov.json` และ package/lockfile/Jest config ที่จำเป็นต้องเพิ่ม |
+| AngularJS | workflow, `config_cov.json` และชุดเครื่องมือแยกใน `quality-gate/` |
+| JavaScript ที่เปิด SonarCloud | เพิ่ม `sonar-project.properties` |
+
+AngularJS ยังต้องมี dependencies ของแอปและ root lockfile ที่ถูกต้อง เว็บไม่สร้าง dependencies ของแอปจากการคาดเดา
+
+เมื่อติดตั้งแล้ว การเปลี่ยนค่าและกด Install อีกครั้งจะสร้าง PR อัปเดต ไม่มีการ merge หรือแก้ default branch โดยตรง
+
+## การตั้งค่า AI และ API keys
+
+| รูปแบบ | สิ่งที่กรอก | Repository secret |
+| --- | --- | --- |
+| Gemini API | ชื่อโมเดล; ค่าเริ่มต้นในโค้ดคือ `gemini-3.1-flash-lite` | `GEMINI_API_KEY` |
+| OpenAI-compatible | ชื่อโมเดลและ HTTPS Chat Completions URL แบบเต็ม | `AI_API_KEY` |
+| SonarCloud สำหรับ JavaScript | Organization และ Project key | `SONAR_TOKEN` |
+
+การค้นหาโปรเจกต์ SonarCloud ผ่านเว็บรองรับภูมิภาค EU (`sonarcloud.io`) และไม่ใช่การสร้างโปรเจกต์ใหม่
+
+ตัวอย่างรูปแบบ URL สำหรับบริการอื่น:
+
+```text
+https://your-provider.example/v1/chat/completions
+```
+
+- ไม่ล็อกรายชื่อโมเดล แต่บริการต้องใช้รูปแบบ API ที่ระบบรองรับ
+- ไม่รองรับ API ทุกชนิด เช่น Anthropic Messages หรือ OpenAI Responses โดยตรง
+- URL ต้องเข้าถึงผ่านอินเทอร์เน็ตได้ ไม่ใส่ key ใน URL และไม่ใช้ redirect หรือ IP ภายใน
+- Key ผ่าน backend ชั่วคราวเพื่อเข้ารหัสและส่งไป GitHub ไม่เก็บในฐานข้อมูล, localStorage หรือ export
+- การบันทึกสำเร็จยืนยันว่าเก็บ secret แล้ว ไม่ได้ยืนยันว่า key หรือโมเดลใช้งานได้
+- เมื่อ workflow รัน โค้ดจะถูกส่งไปยังบริการที่ผู้ใช้เลือก และใช้โควตา/ค่าใช้จ่ายของบัญชีนั้น
+- หากใช้งานไม่ได้ ระบบรายงานข้อผิดพลาดและไม่เปลี่ยนโมเดลให้เอง
+
+## เทสต์และ coverage
+
+หลังติดตั้ง เมื่อเปิด PR งาน ระบบแยกงานเป็น **generate → checks → report**:
+
+- สร้างเทสต์โดยไม่ execute โค้ด PR ใน job ที่ถือ AI key
+- รันโค้ดและเทสต์ใน job ที่ไม่มี AI key หรือสิทธิ์เขียน repo
+- เพิ่มเทสต์และโพสต์รายงานใน job ที่ไม่ checkout หรือ execute โค้ด PR
+
+ไฟล์เทสต์จะปรากฏใน **Files changed ก่อน merge**:
+
+| โปรเจกต์ | ตำแหน่งเทสต์ที่ AI สร้าง |
+| --- | --- |
+| JavaScript/Jest | `Test/quality-gate/<source-path-hash>.test.js` |
+| AngularJS | `quality-gate/generated.test.cjs` |
+
+เมื่อ merge PR เทสต์จะเข้า base branch พร้อมโค้ด เทสต์ที่ล้มเหลวก็เก็บให้ review ได้ โดยไม่แก้ assertion เพื่อบังคับให้ผ่าน พื้นที่เทสต์ที่ระบบสร้างจะถูกจัดการโดย Action; เทสต์ที่ต้องการดูแลเองควรอยู่นอกพื้นที่นี้
+
+Coverage วัดจากการรันจริง มีข้อมูล statements, branches, functions และ lines ในไฟล์รายงาน โดยเกณฑ์ใน `config_cov.json` ใช้ **statements** แบบรวมและแบบเฉพาะไฟล์ เทสต์ผ่านแต่ coverage ต่ำยังไม่ผ่าน และ coverage สูงไม่ได้ลบล้างเทสต์ที่ล้มเหลว
+
+ดูผลที่ความคิดเห็นใน PR, check ชื่อ **Quality Gate** และ workflow artifacts การบล็อก merge ต้องตั้ง branch rules แยกต่างหาก
+
+### รันเทสต์ที่เก็บแล้วซ้ำ
+
+JavaScript:
+
+```powershell
+npm ci
+npx jest --coverage
+```
+
+AngularJS:
+
+```powershell
+npm ci
+npm ci --prefix quality-gate
+node quality-gate/run.cjs
+```
+
+AngularJS เก็บรายงานไว้ใน `coverage/quality-gate/` รวม HTML, lcov และ JSON
+
+## Deploy
+
+ใช้ hosting ที่รัน **Next.js server** ได้ รุ่นนี้ไม่รองรับ static export เพราะมี OAuth และ server routes
+
+1. ตั้ง Environment Variables ทั้งห้ารายการบน hosting ตามตารางด้านบน
+2. เปลี่ยน `APP_URL` เป็นโดเมน HTTPS จริง
+3. เปลี่ยน Homepage, Callback และ Setup URL ของ GitHub App ให้ตรงกับโดเมนจริง
+4. Build และเริ่มเซิร์ฟเวอร์:
+
+```powershell
+npm ci
+npm run build
+npm start
+```
+
+`.env.local` ในเครื่องไม่ได้ถูกส่งไป hosting อัตโนมัติ การ deploy โดยไม่ตั้งค่าจะยัง Login ไม่ได้ และควรปิดการบันทึก request bodies ที่อาจมี keys ใน production
+
+## ข้อจำกัดและการแก้ปัญหา
+
+| อาการ/ข้อจำกัด | สิ่งที่ควรตรวจ |
+| --- | --- |
+| “บริการเข้าสู่ระบบยังไม่พร้อม” | Client ID/secret, App slug และ session secret ต้องครบ แล้ว restart/redeploy |
+| Login แล้วไม่พบ repo | บัญชี GitHub และ App ต้องมีสิทธิ์ร่วมกัน อาจต้องอนุมัติ installation/สิทธิ์ใหม่ |
+| ไม่พบ Action รุ่นที่จะติดตั้ง | ตรวจว่า commit ใน `src/lib/config.ts` เผยแพร่บน GitHub และ token เข้าถึงได้ |
+| เตรียม dependencies ไม่ได้ | npm/Jest, lockfile และโครงสร้างต้องเป็นกรณีที่รองรับ ระบบไม่ทับ dependency tree เดิม |
+| ไม่เห็นเทสต์ใน PR | ตรวจ job report, สิทธิ์ Contents/Checks และว่า PR head ยังตรงกับ commit ที่ตรวจ |
+| เทสต์รันไม่ครบ | Jest config เดิมต้องครอบคลุม `Test/quality-gate/` |
+| สถานะ “ติดตั้งแล้ว” | ยืนยันจากไฟล์ใน default branch ไม่ใช่หลักฐานว่า keys ใช้ได้หรือผลตรวจผ่าน |
+
+การเตรียม JavaScript อัตโนมัติเน้น **CommonJS + npm ที่ root**; TypeScript, JSX, ESM, workspaces, monorepo และ package manager อื่นอาจต้องตั้งค่าเฉพาะ AngularJS ต้องมีโค้ดใน `src/` และ bootstrap ที่รองรับ
+
+Workflow รุ่นใหม่ไม่เขียนเทสต์ไปยัง fork และข้าม GitHub Actions bot/Dependabot ตามเงื่อนไขใน workflow เพื่อป้องกันการทำงานวนซ้ำ SonarCloud ยังไม่รองรับใน AngularJS
+
+## สำหรับผู้พัฒนา
+
+### โครงสร้างสำคัญ
+
+```text
+src/app/                    หน้าเว็บและ API routes
+src/components/             Workspace, การตั้งค่า AI และปุ่มติดตั้ง
+src/lib/config.ts           Settings และ workflow ที่เว็บสร้าง
+src/lib/installation.ts     รวมไฟล์ ตรวจสิทธิ์ และสร้าง PR ติดตั้ง
+src/lib/preparation.ts      วางแผนไฟล์ npm/Jest โดยไม่ execute โค้ดผู้ใช้
+src/lib/angularjs-toolkit.json  Snapshot ชุดเครื่องมือ AngularJS
+src/lib/session.ts          Session และการตั้งค่า Login
+tests/                      Unit และ integration tests แบบ mock
+docs/                       คู่มือตรวจและบันทึกพฤติกรรมแต่ละรุ่น
+```
+
+### ตรวจงานก่อนเผยแพร่
 
 ```powershell
 npm test
@@ -106,96 +278,12 @@ npm run typecheck
 npm run build
 ```
 
-Tests ตรวจ schema, coverage config, Sonar toggle, secret references, immutable Action reference และการป้องกัน workflow รับ secrets จาก fork
+เมื่อแก้ Action ต้อง build และเผยแพร่ commit ที่มี `dist/index.js` แล้วอัปเดต `engineRef` ในเว็บ หากแก้ชุดเครื่องมือ AngularJS ต้องปรับ snapshot ในเว็บให้ตรงกันด้วย Repo ที่ติดตั้งไปแล้วต้อง merge PR อัปเดต workflow จึงจะใช้รุ่นใหม่
 
-Production ต้องใช้ hosting ที่รัน Next.js server ได้ พร้อม HTTPS และ environment variables ไม่รองรับ static export เพราะมี OAuth และ server routes ขณะนี้ยังไม่ได้ deploy
+ผลทดสอบในเครื่องมีทั้ง mocks และ fixture ที่รันเทสต์จริง แต่ยังต้องทดลอง GitHub App, การสร้าง PR, สิทธิ์เขียน และ AI keys ใน repository ทดลองของเจ้าของบัญชีก่อนใช้งานจริง
 
-## Design
+### เอกสารเพิ่มเติม
 
-พื้นหลัง cloud #f7f9fc, ตัวอักษร navy #172b4d, accent blue #275dda, เส้นแบ่ง #e5eaf2, success green #23805a ใช้ Segoe UI / Leelawadee UI จากเครื่อง ไม่โหลด font ภายนอก Layout เป็น sidebar + workspace list และ wizard 4 ขั้น ไม่มีสถานะสำเร็จปลอม
-
-## อ้างอิง
-
-- https://docs.github.com/en/rest/apps/installations
-- https://docs.github.com/en/rest/actions/secrets
-- https://github.com/NonnaritRammaneekultawat-6609650459/test-github-marketplace
-
-
-## เตรียม npm/Jest ผ่านหน้าเว็บ (เพิ่มแล้ว)
-
-1. เชื่อม GitHub App ที่มีสิทธิ์ Contents / Pull requests แบบ Read and write และติดตั้งใน repo งาน
-2. เลือก repo ในหน้าเว็บ แล้วเปิดหน้าตั้งค่า
-3. ในขั้นตั้งค่าการตรวจ กด **ตรวจไฟล์ที่ขาด**
-4. อ่านรายการไฟล์และเปิดดูเนื้อหาเดิม/เนื้อหาที่เสนอ
-5. กด **สร้าง PR เตรียมโปรเจกต์** เว็บจะเพิ่มไฟล์ลง branch ใหม่และเปิด PR ให้ตรวจและ merge ด้วยตนเอง
-6. หลัง merge กดตรวจอีกครั้ง ระบบจะแสดงว่าไม่มีไฟล์ที่ต้องเพิ่มหากครบแล้ว
-
-โหมดตัวอย่างจำลอง repo ที่มีเพียง src/math.js และปิดการสร้าง PR จริง ไม่ต้องกรอก keys และไม่มีการส่ง secrets ในขั้นตอนนี้
-
-### รองรับ
-
-- JavaScript CommonJS ใช้ npm ที่ root ของ repo
-- Repo ที่ไม่มี package.json/lockfile: เพิ่ม package.json, package-lock.json ที่สร้างด้วย npm จริง และ jest.config.cjs
-- package.json เดิมที่ยังไม่มี dependencies: เพิ่ม Jest 30.5.2 โดยรักษาชื่อ เวอร์ชัน scripts และ metadata
-- Repo ที่มี Jest กับ lockfile ตรงกับ dependencies แล้ว: รักษา dependencies และ lockfile เดิม เพิ่มเฉพาะ config หรือ test script ที่ยังไม่มี
-- ไม่เขียนทับ test script หรือ Jest config เดิม
-
-### ข้อจำกัดที่แสดงในเว็บ
-
-- โปรเจกต์ที่มี dependencies เดิมแต่ยังไม่มี Jest/lockfile ที่เข้ากัน: ต้องรัน npm install --save-dev jest และ commit lockfile ก่อน ไม่ใช้ lock template ไปทับ dependency tree เดิม
-- TypeScript, JSX, ES modules, workspaces, monorepo, Yarn/pnpm/Bun และ shrinkwrap ต้องเตรียมเฉพาะโปรเจกต์
-- ต้องมี commit แรกใน repo ก่อนสร้าง branch/PR
-- ถ้ามีแค่ test.js ที่ root ระบบเตรียม npm/Jest ให้ได้ แต่ Action เดิมยังตรวจเฉพาะ src/ ต้องย้าย source หรือแก้ engine ก่อน
-- PR นี้ไม่สร้างเทสต์ ไม่เพิ่ม workflow ไม่บอกว่าคุณภาพผ่าน และไม่เปิดติดตั้ง Action
-
-### การทำงานฝั่งเซิร์ฟเวอร์
-
-`POST /api/preparation` รับ action inspect/create; ตรวจ session และ Origin ทุกครั้ง ใช้ GitHub App user token จึงจำกัดสิทธิ์ตามทั้งผู้ใช้และ app ตรวจ push permission เพิ่มอีกครั้ง อ่านไฟล์จาก commit เดียวกัน และปฏิเสธ preview ที่เก่าหรือถูกเปลี่ยน
-
-การสร้างใช้ Git tree commit เดียวบน branch quality-gate/prepare-... ไม่เขียน main หรือ force push กดซ้ำจะคืน PR ที่เปิดอยู่เดิม หากสร้าง branch ได้แต่ PR ล้มเหลว สามารถ retry โดยตรวจ tree/parent ก่อนใช้ branch เดิม
-
-เซิร์ฟเวอร์ไม่รันโค้ด repo, npm scripts หรือ Jest config ของผู้ใช้ Lock template อยู่ใน src/lib/setup-template-lock.json และสร้างจาก Jest 30.5.2 ด้วย npm install --package-lock-only --ignore-scripts; ปรับเฉพาะ metadata root ให้ตรง package.json ของผู้ใช้
-
-ทดสอบการวางแผนและ API GitHub ด้วย mock รวมกรณีไม่มีสิทธิ์, snapshot เก่า, tree ไม่ครบ และ retry PR ส่วนการสร้าง PR บน GitHub จริงยังต้องมี GitHub App ที่ตั้งค่าแล้ว
-
-
-### Verification 2026-10-17
-
-ชุดไฟล์ที่สร้างถูกนำไปทดสอบในโปรเจกต์ชั่วคราวด้วย npm ci และ Jest: ผ่าน 1 test และรายงาน coverage 100% สำหรับ fixture math.js (เป็นผลของ fixture ไม่ใช่ผลตรวจ repo ผู้ใช้)
-
-npm audit ของ Jest template 30.5.2 ยังรายงานช่องโหว่ระดับ moderate 19 รายการใน dependency chain ไม่มี high/critical ณ วันที่ตรวจ ไม่ใช้ audit fix --force ที่เสนอ downgrade Jest; ควรติดตามอัปเดต dependencies และนโยบาย audit ของ engine ก่อนเปิดใช้จริง
-
-ยังไม่ได้ทดสอบ login/สร้าง PR บน GitHub จริง เพราะยังต้องตั้ง GitHub App ของเจ้าของระบบ และยังไม่ได้ตรวจ UI ผ่าน browser automation เนื่องจากข้อจำกัดสิทธิ์ที่พบก่อนหน้า
-
-
-## อนุญาต GitHub App ผ่านเว็บ (เพิ่มแล้ว)
-
-ผู้ใช้กด **เชื่อมต่อ GitHub** → Login → ถ้ายังไม่มี repo ที่อนุญาต เว็บพาไปหน้า Install ของ GitHub → ผู้ใช้เลือก repo และกด Install → GitHub ส่งกลับเว็บที่ Setup URL → เว็บตรวจสิทธิ์จริงและโหลดรายชื่อ repo
-
-ผู้ที่มี repo อนุญาตแล้วจะเข้า Dashboard ได้ทันที และใช้ปุ่ม **อนุญาต / เพิ่ม repo** เพื่อเพิ่มหรือเปลี่ยน repo ได้ ปุ่มเดียวกันมีในหน้าว่างและขั้นเลือก repo ของ wizard ด้วย
-
-เจ้าของ App ต้องตั้ง:
-
-- Redirect URI: `http://localhost:3000/api/auth/callback` สำหรับ Login
-- Setup URL: `http://localhost:3000/api/github/return` สำหรับกลับจากเลือก repo
-- Redirect on update: เปิด
-- Request user authorization (OAuth) during installation: ปิด สำหรับลำดับ login-first นี้
-- ใช้ hostname/port ให้ตรง APP_URL ทุกช่อง เปลี่ยนเป็นโดเมน HTTPS เมื่อ deploy
-
-ไม่เชื่อ installation_id หรือ setup_action จาก URL กลับ เว็บไซต์ตรวจ user token กับรายชื่อ installations/repositories ของ App นี้จาก GitHub จริง หากยังไม่มีสิทธิ์หรือรอองค์กรอนุมัติจะแสดงข้อความให้ดำเนินการต่อ ไม่แสดงว่าติดตั้งเสร็จและไม่วนกลับไป GitHub อัตโนมัติ
-
-การอนุญาต App ยังไม่ใช่การติดตั้ง workflow ตรวจคุณภาพ ส่วนการติดตั้ง workflow ทำผ่าน PR ในขั้นตรวจสอบก่อนติดตั้ง
-
-## บันทึก keys และเลือกโปรเจกต์ SonarCloud ที่มีอยู่
-
-- ขั้นเชื่อมต่อบริการ: กรอก Gemini API key หรือ Sonar token แล้วกดบันทึกลง repo แต่ละรายการ การบันทึกทับ secret ชื่อเดิม; ไม่ได้ตรวจว่า key ใช้งานกับผู้ให้บริการได้
-- ต้องเพิ่ม Repository permissions → Secrets: Read and write ใน GitHub App และอนุมัติสิทธิ์ใหม่ของ installation; หาก session หมดอายุให้เข้าสู่ระบบใหม่
-- Key ผ่าน backend ของเว็บชั่วคราวและเข้ารหัสด้วย public key ของ repo ก่อนส่ง GitHub ไม่มีการบันทึกลงฐานข้อมูล/localStorage/export และไม่แสดงค่ากลับ; production ต้องใช้ HTTPS และไม่เปิด request-body logging
-- ขั้นตั้งค่าการตรวจ: เปิด SonarCloud กรอก Organization Key และ token แล้วกดแสดงโปรเจกต์ที่มีอยู่ เลือกเพื่อเติม Project Key ได้ รองรับ SonarCloud EU; รายการเป็นโปรเจกต์ที่ token เข้าถึงได้ ไม่ใช่หลักฐานว่าผูกกับ GitHub repo ที่เลือกแล้ว
-- Token ค้นหาใช้กับ SonarCloud เท่านั้น ไม่บันทึกลง repo อัตโนมัติ ถ้าจะใช้ workflow ต้องกดบันทึก SONAR_TOKEN ในขั้นเชื่อมต่อบริการต่างหาก
-- การบันทึก key ยังไม่ติดตั้งหรือเปิดรัน Action; ต้องสร้างและ merge PR ติดตั้ง workflow ก่อน; engine ยังไม่ได้แก้ไข
-
-## สถานะการติดตั้งบนหน้า Repositories
-
-อ่าน .github/workflows/quality-gate.yml และ config_cov.json จาก commit เดียวกันใน default branch: พบ workflow เรียก engine และ coverage config ถูกต้อง = ติดตั้งแล้ว; ไม่พบ workflow = ยังไม่ติดตั้ง; ไฟล์ผิดหรือไม่ครบ = ตั้งค่าไม่ครบ; API/สิทธิ์ผิดพลาด = ตรวจสอบไม่ได้ สถานะไม่ยืนยัน secrets, workflow เปิดใช้งาน หรือผลตรวจผ่าน
-มีตัวกรองและจำนวนแยกสถานะ พร้อมปุ่มรีเฟรชหลัง merge PR ติดตั้ง รายการโหลดจาก GitHub App ที่ตั้งค่าไว้เท่านั้น ข้อความตั้งค่า GitHub App/env และแผนพัฒนาไม่แสดงใน UI ผู้ใช้แล้ว
+- [รายการตรวจ Install, ไฟล์เทสต์ และ coverage](docs/INSTALL-AND-TESTS-CHECKLIST.md)
+- [รายละเอียด Action และการรันเทสต์ซ้ำ](https://github.com/NonnaritRammaneekultawat-6609650459/test-github-marketplace)
+- [บันทึกข้อจำกัดของ engine รุ่นก่อน](docs/ENGINE-FOLLOWUP.md)
