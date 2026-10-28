@@ -21,7 +21,7 @@ function validApiUrl(value: string) {
 }
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', aiTimeout: 90, coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@f9a3080b7fb17580a8fb67e0fc8027fa9e12623a';
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@4b9cb7511573e663201cff55d2aefb0352d41e41';
 // Tested local Action commit. Installation verifies GitHub publication before creating a PR.
 export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
@@ -47,7 +47,7 @@ export function installationFiles(input: Settings) {
       generate: { if: guard, 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
         permissions: { contents: 'read', 'pull-requests': 'read' },
         steps: [{ name: 'Generate tests and review without executing PR code', uses,
-          with: { ...identity, ...ai, phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token, ai_timeout_seconds: String(s.aiTimeout) } },
+          with: { ...identity, ...ai, ai_fallback_models: '${{ vars.AI_FALLBACK_MODELS }}', phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token, ai_timeout_seconds: String(s.aiTimeout) } },
           upload('aq-generated-tests', '.aq-generated/') ] },
       checks: { needs: 'generate', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 15,
         permissions: { contents: 'read' },
@@ -72,7 +72,7 @@ export function installationFiles(input: Settings) {
               '-Dsonar.pullrequest.key=${{ github.event.pull_request.number }}',
               '-Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}',
               '-Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}',
-              '-Dsonar.scanner.metadataFilePath=.scannerwork/report-task.txt',
+              '-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt',
             ].join('\n') } },
           upload('quality-gate-sonar', '.scannerwork/report-task.txt'),
         ] } } : {}),

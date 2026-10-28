@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import { parse } from 'yaml';
 import { defaultSettings, installationFiles, settingsSchema } from '../src/lib/config';
 
+test('Sonar metadata uses an absolute workspace path and AI fallback is configurable', () => {
+  for (const projectType of ['javascript','angularjs'] as const) {
+    const workflow=parse(installationFiles({...defaultSettings,projectType,sonar:true,projectKey:'project',organization:'org'})['.github/workflows/quality-gate.yml']);
+    const scan=workflow.jobs.sonar.steps.find((s: {name?:string})=>s.name==='SonarCloud Scan');
+    assert.ok(scan.with.args.includes('-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt'));
+    assert.equal(workflow.jobs.generate.steps[0].with.ai_fallback_models,'${{ vars.AI_FALLBACK_MODELS }}');
+  }
+});
+
 test('JavaScript runs once per PR event, with the same activity types as AngularJS', () => {
   const js = parse(installationFiles(defaultSettings)['.github/workflows/quality-gate.yml']);
   const angular = parse(installationFiles({ ...defaultSettings, projectType: 'angularjs' })['.github/workflows/quality-gate.yml']);
