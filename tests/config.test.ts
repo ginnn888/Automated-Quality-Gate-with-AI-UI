@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { parse } from 'yaml';
 import { defaultSettings, installationFiles, settingsSchema } from '../src/lib/config';
 
-test('Sonar metadata uses an absolute workspace path and AI fallback is configurable', () => {
+test('Sonar metadata uses an absolute workspace path and AI never enables fallback', () => {
   for (const projectType of ['javascript','angularjs'] as const) {
     const workflow=parse(installationFiles({...defaultSettings,projectType,sonar:true,projectKey:'project',organization:'org'})['.github/workflows/quality-gate.yml']);
     const scan=workflow.jobs.sonar.steps.find((s: {name?:string})=>s.name==='SonarCloud Scan');
     assert.ok(scan.with.args.includes('-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt'));
-    assert.equal(workflow.jobs.generate.steps[0].with.ai_fallback_models,'${{ vars.AI_FALLBACK_MODELS }}');
+    assert.equal(workflow.jobs.generate.steps[0].with.ai_fallback_models, undefined);
   }
 });
 

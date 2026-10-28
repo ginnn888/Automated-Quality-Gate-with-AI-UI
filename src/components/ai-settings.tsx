@@ -24,7 +24,5 @@ export default function AISettings({ settings, onChange }: { settings: Settings;
       <input id="ai-api-url" type="url" value={settings.aiApiUrl} onChange={event => onChange({ ...settings, aiApiUrl: event.target.value })} placeholder="https://your-provider.example/v1/chat/completions" spellCheck={false} aria-describedby="ai-api-help"/>
       <p id="ai-api-help" className="field-hint">ใช้ HTTPS URL สำหรับ Chat Completions ที่เข้าถึงจากอินเทอร์เน็ตได้ ไม่ใส่ key ใน URL ระบบไม่จำกัดรายชื่อโมเดล หาก API หรือคำตอบไม่รองรับ จะแจ้งข้อผิดพลาดในผลตรวจ</p>
     </>}
-    <label htmlFor="ai-timeout">เวลารอ AI ต่อคำขอ (วินาที)</label>
-    <input id="ai-timeout" type="number" min="10" max="180" value={settings.aiTimeout} onChange={event => onChange({ ...settings, aiTimeout: Number(event.target.value) })}/>
   </div>;
 }

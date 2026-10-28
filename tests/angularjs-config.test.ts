@@ -42,11 +42,10 @@ test('untrusted test execution is isolated from Gemini secrets and comment write
 
 test('user inputs cannot inject YAML or omit required Sonar settings', () => {
   assert.throws(() => installationFiles({ ...settings, geminiModel: "x\nrun: evil" }));
-  assert.throws(() => installationFiles({ ...settings, aiTimeout: 181 }));
   assert.throws(() => installationFiles({ ...settings, sonar: true }));
-  const changed = parse(installationFiles({ ...settings, geminiModel: 'gemini-custom', aiTimeout: 120 })['.github/workflows/quality-gate.yml']);
+  const changed = parse(installationFiles({ ...settings, geminiModel: 'gemini-custom' })['.github/workflows/quality-gate.yml']);
   assert.equal(changed.jobs.generate.steps[0].with.gemini_model, 'gemini-custom');
-  assert.equal(changed.jobs.generate.steps[0].with.ai_timeout_seconds, '120');
+  assert.equal(changed.jobs.generate.steps[0].with.ai_timeout_seconds, undefined);
   assert.ok(!installationFiles(defaultSettings)['.github/workflows/quality-gate.yml'].includes('GITHUB_STEP_SUMMARY'));
   assert.ok(!installationFiles(defaultSettings)['.github/workflows/quality-gate.yml'].includes('run: exit 1'));
 });

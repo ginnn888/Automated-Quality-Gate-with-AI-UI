@@ -9,6 +9,14 @@ import type { GitHubClient } from '../src/lib/preparation-github';
 
 const custom = { ...defaultSettings, aiProvider: 'openai-compatible' as const, aiApiUrl: 'https://provider.example/api/v1/chat/completions', geminiModel: 'vendor/model:latest' };
 
+test('legacy browser timeout values are ignored and never reach the workflow', () => {
+  const settings = settingsSchema.parse({...defaultSettings, aiTimeout: 1});
+  assert.ok(!('aiTimeout' in settings));
+  const workflow = installationFiles(settings)['.github/workflows/quality-gate.yml'];
+  assert.ok(!workflow.includes('ai_timeout_seconds'));
+  assert.ok(!workflow.includes('ai_fallback_models'));
+});
+
 test('JavaScript forwards arbitrary model, exact URL and secret reference, retaining PR guards', () => {
   assert.match(flexibleEngineRef, /@[a-f0-9]{40}$/);
   const workflow = parse(installationFiles(custom)['.github/workflows/quality-gate.yml']);
@@ -17,7 +25,9 @@ test('JavaScript forwards arbitrary model, exact URL and secret reference, retai
   assert.equal(step.with.ai_model, custom.geminiModel);
   assert.equal(step.with.ai_api_url, custom.aiApiUrl);
   assert.equal(step.with.ai_api_key, '${{ secrets.AI_API_KEY }}');
-  assert.equal(step.with.ai_timeout_seconds, '90');
+  assert.equal(step.with.ai_timeout_seconds, undefined);
+  assert.equal(step.with.ai_fallback_models, undefined);
+  assert.equal(workflow.jobs.generate['timeout-minutes'], undefined);
   assert.equal(step.with.gemini_api_key, undefined);
   assert.ok(workflow.jobs.generate.if.includes('head.repo.full_name'));
   assert.deepEqual(Object.keys(workflow.on), ['pull_request_target']);
@@ -42,10 +52,10 @@ test('AngularJS custom service preserves isolated checks and three phases on the
 });
 
 test('native Gemini forwards the same isolated model contract as compatible providers', () => {
-  const workflow = parse(installationFiles({ ...defaultSettings, geminiModel: 'gemini-custom', aiTimeout: 120 })['.github/workflows/quality-gate.yml']);
+  const workflow = parse(installationFiles({ ...defaultSettings, geminiModel: 'gemini-custom' })['.github/workflows/quality-gate.yml']);
   const step = workflow.jobs.generate.steps.find((s: { uses?: string }) => s.uses === engineRef);
   assert.equal(step.with.gemini_model, 'gemini-custom');
-  assert.equal(step.with.ai_timeout_seconds, '120');
+  assert.equal(step.with.ai_timeout_seconds, undefined);
   assert.equal(aiSecretName(defaultSettings), 'GEMINI_API_KEY');
   assert.equal(aiSecretName(custom), 'AI_API_KEY');
 });

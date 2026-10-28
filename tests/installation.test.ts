@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import {parse, stringify} from 'yaml';
 import { createPreparationPR, inspectRepository, type GitHubClient } from '../src/lib/preparation-github';
 import { createInstallation, inspectInstallation, installOnce } from '../src/lib/installation';
 import { defaultSettings, flexibleEngineRef, installationFiles } from '../src/lib/config';
@@ -14,7 +15,12 @@ function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: 
       { path: 'package.json', before: null, after: JSON.stringify(pkg) },
       { path: 'package-lock.json', before: null, after: JSON.stringify({ packages: { '': pkg, 'node_modules/angular': { version: '1.8.3' } } }) },
     ];
-    if (options.alternate) prepared.push({ path: '.github/workflows/aq-review.yml', before: null, after: installationFiles({ ...defaultSettings, projectType: 'angularjs', aiTimeout: 60 })['.github/workflows/quality-gate.yml'] });
+    if (options.alternate) {
+      const legacy = parse(installationFiles({ ...defaultSettings, projectType: 'angularjs' })['.github/workflows/quality-gate.yml']);
+      legacy.jobs.generate['timeout-minutes'] = 7;
+      legacy.jobs.generate.steps[0].with.ai_timeout_seconds = '60';
+      prepared.push({ path: '.github/workflows/aq-review.yml', before: null, after: stringify(legacy) });
+    }
   }
   if (options.bare) prepared=[];
   if (options.oldCoverage) prepared.push({path:'config_cov.json',before:null,after:options.oldCoverage});

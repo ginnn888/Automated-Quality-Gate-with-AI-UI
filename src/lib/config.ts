@@ -6,7 +6,6 @@ export const settingsSchema = z.object({
   aiProvider: z.enum(['gemini', 'openai-compatible']).default('gemini'),
   aiApiUrl: z.string().max(2000).default(''),
   geminiModel: z.string().trim().min(1).max(200).regex(/^[^\s\x00-\x1f\x7f]+$/).refine(v => !v.includes('${{'), 'ชื่อโมเดลต้องไม่มี workflow expression').default('gemini-3.1-flash-lite'),
-  aiTimeout: z.number().int().min(10).max(180).default(90),
   coverage: z.number().int().min(1).max(100),
   sonar: z.boolean(),
   projectKey: z.string().max(200).regex(/^[a-zA-Z0-9_.:-]*$/),
@@ -20,8 +19,8 @@ function validApiUrl(value: string) {
   } catch { return false; }
 }
 export type Settings = z.infer<typeof settingsSchema>;
-export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', aiTimeout: 90, coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@4b9cb7511573e663201cff55d2aefb0352d41e41';
+export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', coverage: 80, sonar: false, projectKey: '', organization: '' };
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@eec005e1c762aa2c3064f1eb1cd3a8127adf3484';
 // Tested local Action commit. Installation verifies GitHub publication before creating a PR.
 export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
@@ -44,10 +43,10 @@ export function installationFiles(input: Settings) {
     permissions: {},
     concurrency: { group: 'quality-${{ github.workflow }}-pr-${{ github.event.pull_request.number }}', 'cancel-in-progress': true },
     jobs: {
-      generate: { if: guard, 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
+      generate: { if: guard, 'runs-on': 'ubuntu-latest',
         permissions: { contents: 'read', 'pull-requests': 'read' },
         steps: [{ name: 'Generate tests and review without executing PR code', uses,
-          with: { ...identity, ...ai, ai_fallback_models: '${{ vars.AI_FALLBACK_MODELS }}', phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token, ai_timeout_seconds: String(s.aiTimeout) } },
+          with: { ...identity, ...ai, phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token } },
           upload('aq-generated-tests', '.aq-generated/') ] },
       checks: { needs: 'generate', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 15,
         permissions: { contents: 'read' },
