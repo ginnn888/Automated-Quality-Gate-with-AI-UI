@@ -41,6 +41,7 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
       before = Buffer.from(blob.content, 'base64').toString('utf8');
     }
     if (path.startsWith('quality-gate/') && before !== null && before !== after) throw new PreparationError(`มี ${path} เดิมที่ต่างจากชุดเครื่องมือ กรุณาตรวจไฟล์ก่อนเพื่อไม่เขียนทับงานเดิม`);
+    if (path === 'audit-resolve.json' && before !== null) continue;
     let content = after;
     if (path === 'config_cov.json' && before !== null) {
       try {
@@ -51,7 +52,22 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
     }
     if (before !== content) files.push({ path, before, after: content });
   }
+  const warnings: string[] = [];
+  if (!settings.sonar && tree.tree.some(f => f.path === 'sonar-project.properties')) warnings.push('มี sonar-project.properties เดิม แต่ workflow ที่ติดตั้งครั้งนี้ปิด SonarCloud และไม่ใช้ไฟล์นั้น');
+  const managed = Object.keys(generated).filter(p => p.startsWith('.github/workflows/'));
+  const otherWorkflows = tree.tree.filter(f => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f.path) && !managed.includes(f.path));
+  for (const entry of otherWorkflows.slice(0, 30)) {
+    if (entry.type !== 'blob' || entry.mode !== '100644' || (entry.size || 0) > 100000) {
+      warnings.push('ตรวจ workflow เดิมไม่ได้: ' + entry.path); continue;
+    }
+    const blob = await api<{content:string; encoding:string}>(`/repos/${repository}/git/blobs/${entry.sha}`);
+    if (blob.encoding !== 'base64') { warnings.push('ตรวจ workflow เดิมไม่ได้: ' + entry.path); continue; }
+    const source = Buffer.from(blob.content, 'base64').toString('utf8');
+    if (/sonar|reusable-gate|test-github-marketplace/i.test(source)) warnings.push('พบ workflow เดิมที่อาจเรียก SonarCloud หรือ Quality Gate ซ้ำ: ' + entry.path + ' — โปรดตรวจบน GitHub; การตั้งค่าครั้งนี้ไม่เปลี่ยนหรือลบ workflow นี้');
+  }
+  if (otherWorkflows.length > 30) warnings.push('มี workflow จำนวนมาก ตรวจได้เพียง 30 ไฟล์แรก โปรดตรวจ workflow ที่เหลือบน GitHub');
   const plan: PreparationPlan = { status: files.length ? 'changes' : 'ready', files, messages: [
+    ...warnings,
     ...base.plan.messages.filter(m => !m.includes('PR นี้เตรียมเครื่องมือเท่านั้น')),
     'PR เดียวรวมไฟล์เตรียมโปรเจกต์ workflow และ coverage config; ติดตั้งแล้วไม่ได้แปลว่าผลตรวจผ่าน',
     'เมื่อเปิด PR งาน Action จะสร้างเทสต์ เพิ่มไฟล์เทสต์ใน PR เดียวกัน และรายงาน coverage; ต้องอนุญาต GitHub Actions ให้เขียน Contents และ Checks',

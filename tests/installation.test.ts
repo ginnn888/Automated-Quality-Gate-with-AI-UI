@@ -7,7 +7,7 @@ import { defaultSettings, flexibleEngineRef, installationFiles } from '../src/li
 import { planPreparation } from '../src/lib/preparation';
 import { GitHubError } from '../src/lib/github';
 
-function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean; angular?: boolean; alternate?: boolean; bare?: boolean; oldCoverage?: string } = {}) {
+function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: boolean; angular?: boolean; alternate?: boolean; bare?: boolean; oldCoverage?: string; extra?: Record<string,string> } = {}) {
   let prepared = planPreparation({ paths: ['src/math.js'], packageJson: null, packageLock: null }).files;
   if (options.angular) {
     const pkg = { dependencies: { angular: '1.8.3' } };
@@ -24,6 +24,7 @@ function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: 
   }
   if (options.bare) prepared=[];
   if (options.oldCoverage) prepared.push({path:'config_cov.json',before:null,after:options.oldCoverage});
+  for (const [path,after] of Object.entries(options.extra || {})) prepared.push({path,before:null,after});
   const calls: { path: string; method: string; body: unknown }[] = [];
   let branch = false, opened = false, fail = options.failPR || false;
   const api: GitHubClient = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
@@ -55,7 +56,7 @@ for (const sonar of [false, true]) test(`installation PR with sonar=${sonar} is 
   const { api, calls } = fakeGitHub();
   const settings = { ...defaultSettings, sonar, projectKey: 'project', organization: 'org' };
   const preview = await inspectInstallation(api, 'user/app', settings);
-  assert.equal(preview.plan.files.length, sonar ? 3 : 2);
+  assert.equal(preview.plan.files.length, sonar ? 4 : 3);
   assert.ok(calls.every(c => c.method === 'GET'));
   await assert.rejects(createInstallation(api, 'user/app', settings, 'stale', preview.digest));
   assert.ok(calls.every(c => c.method === 'GET'));
@@ -71,11 +72,11 @@ test('one install click creates one PR containing preparation, workflow and cove
   const {api,calls}=fakeGitHub({bare:true});
   const result=await installOnce(api,'user/app',defaultSettings);
   assert.equal(result.pull?.number,1);
-  assert.deepEqual(result.preview.plan.files.map(f=>f.path).sort(),['package.json','package-lock.json','jest.config.cjs','.github/workflows/quality-gate.yml','config_cov.json'].sort());
+  assert.deepEqual(result.preview.plan.files.map(f=>f.path).sort(),['package.json','package-lock.json','jest.config.cjs','.github/workflows/quality-gate.yml','audit-resolve.json','config_cov.json'].sort());
   assert.equal(calls.filter(c=>c.method==='POST'&&c.path.endsWith('/pulls')).length,1);
   assert.ok(!calls.some(c=>c.method==='PATCH'));
   const tree=calls.find(c=>c.method==='POST'&&c.path.endsWith('/git/trees'))!.body as {tree:{path:string}[]};
-  assert.equal(tree.tree.length,5);
+  assert.equal(tree.tree.length,6);
 });
 
 test('combined installation retains existing per-file coverage settings and rejects malformed config', async () => {
@@ -134,7 +135,7 @@ for (const alternate of [false, true]) test(`AngularJS installs only upstream wo
   const { api, calls } = fakeGitHub({ angular: true, alternate });
   const settings = { ...defaultSettings, projectType: 'angularjs' as const };
   const preview = await inspectInstallation(api, 'user/app', settings);
-  assert.equal(preview.plan.files.length, 7);
+  assert.equal(preview.plan.files.length, 8);
   assert.ok(preview.plan.files.some(f => f.path === (alternate ? '.github/workflows/aq-review.yml' : '.github/workflows/quality-gate.yml')));
   assert.ok(!calls.some(call => call.path.includes('SONAR_TOKEN')));
   await createInstallation(api, 'user/app', settings, preview.baseSha, preview.digest);
@@ -142,4 +143,15 @@ for (const alternate of [false, true]) test(`AngularJS installs only upstream wo
   assert.ok(tree.tree.some(file => file.path === preview.plan.files[0].path));
   assert.ok(tree.tree.some(file => file.path === 'quality-gate/run.cjs'));
   assert.ok(tree.tree.some(file => file.path === 'config_cov.json'));
+});
+
+
+test('installation preserves audit decisions and warns about foreign Sonar workflows without editing them', async () => {
+  const oldAudit=JSON.stringify({decisions:[{package:'legacy',id:123,reason:'accepted',expires:'2030-01-01'}]});
+  const extra={'audit-resolve.json':oldAudit,'sonar-project.properties':'sonar.projectKey=old-owner', '.github/workflows/old.yml':'jobs:\n  scan:\n    steps:\n      - uses: SonarSource/sonarqube-scan-action@v6'};
+  const {api}=fakeGitHub({extra});
+  const preview=await inspectInstallation(api,'user/app',defaultSettings);
+  assert.ok(!preview.plan.files.some(f=>Object.keys(extra).includes(f.path)));
+  assert.ok(preview.plan.messages.some(m=>m.includes('.github/workflows/old.yml')));
+  assert.ok(preview.plan.messages.some(m=>m.includes('sonar-project.properties')));
 });

@@ -18,7 +18,7 @@ test('AngularJS installs coverage config and uses the isolated three-phase contr
     assert.equal(action.with.project_type, 'angularjs');
     assert.equal(action.with.test_source, 'generated');
   }
-  assert.deepEqual(Object.keys(installationFiles(settings)), ['.github/workflows/quality-gate.yml', 'config_cov.json']);
+  assert.deepEqual(Object.keys(installationFiles(settings)), ['audit-resolve.json', '.github/workflows/quality-gate.yml', 'config_cov.json']);
   assert.equal(classifyInstallation(actual, installationFiles(settings)['config_cov.json']), 'active');
 });
 

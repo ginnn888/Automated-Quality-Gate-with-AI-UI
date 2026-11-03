@@ -1,3 +1,4 @@
+import AccountBoundary from '@/components/account-boundary';
 import Workspace from '@/components/workspace';
 import { configured, sessionToken } from '@/lib/session';
 import { identityFor } from '@/lib/identity';
@@ -8,5 +9,5 @@ export default async function Page() {
   if (!token) redirect('/login');
   const user = await identityFor(token).catch(() => null);
   if (!user) redirect('/login?notice=auth');
-  return <Workspace key={user.id} user={user} connected configured={configured()} appSlug={process.env.GITHUB_APP_SLUG || ''} />;
+  return <AccountBoundary key={user.id} userId={user.id}><Workspace key={user.id} user={user} connected configured={configured()} appSlug={process.env.GITHUB_APP_SLUG || ''} /></AccountBoundary>;
 }

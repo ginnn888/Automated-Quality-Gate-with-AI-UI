@@ -20,7 +20,7 @@ function validApiUrl(value: string) {
 }
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@eec005e1c762aa2c3064f1eb1cd3a8127adf3484';
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@01ca23df58505148ccceb59fc4e826bf1f8bbd56';
 // Tested local Action commit. Installation verifies GitHub publication before creating a PR.
 export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
@@ -78,10 +78,11 @@ export function installationFiles(input: Settings) {
       report: { needs: ['generate', 'checks', ...(s.sonar ? ['sonar'] : [])], if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 5,
         permissions: { contents: 'write', 'pull-requests': 'write', checks: 'write' },
         steps: [ download('aq-generated-tests', '.aq-generated'), download('quality-gate-results', '.'), ...(s.sonar ? [download('quality-gate-sonar', '.aq-sonar')] : []),
-          { name: 'Save tests to PR and publish results', uses, with: { ...identity, ...ai, phase: 'report', github_token: token, persist_tests: 'true', report_only: 'false', ...(s.sonar ? { sonar_token: '${{ secrets.SONAR_TOKEN }}', sonar_project_key: s.projectKey, sonar_scan_status: '${{ needs.sonar.result }}' } : {}) } } ] },
+          { name: 'Save tests to PR and publish results', uses, with: { ...identity, ...ai, phase: 'report', sonar_enabled: String(s.sonar), github_token: token, persist_tests: 'true', report_only: 'false', ...(s.sonar ? { sonar_token: '${{ secrets.SONAR_TOKEN }}', sonar_project_key: s.projectKey, sonar_scan_status: '${{ needs.sonar.result }}' } : {}) } } ] },
     },
   };
   const files: Record<string, string> = {
+    'audit-resolve.json': JSON.stringify({ decisions: [] }, null, 2) + '\n',
     '.github/workflows/quality-gate.yml': '# PR code only executes in the read-only checks job.\n' + stringify(workflow),
     'config_cov.json': JSON.stringify({ global: s.coverage, files: {} }, null, 2) + '\n',
   };

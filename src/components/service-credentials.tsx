@@ -1,15 +1,17 @@
 'use client';
 
+import { useAccountFetch } from './account-boundary';
 import { useState } from 'react';
 
-async function submit(service: string, body: unknown) {
-  const response = await fetch(`/api/services/${service}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+async function submit(accountFetch: ReturnType<typeof useAccountFetch>, service: string, body: unknown) {
+  const response = await accountFetch(`/api/services/${service}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'ทำรายการไม่สำเร็จ');
   return data;
 }
 
 export function RepositorySecret({ repository, name, demo }: { repository: string; name: 'GEMINI_API_KEY' | 'AI_API_KEY' | 'SONAR_TOKEN'; demo: boolean }) {
+  const accountFetch = useAccountFetch();
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -18,7 +20,7 @@ export function RepositorySecret({ repository, name, demo }: { repository: strin
     if (demo || busy) return;
     setBusy(true); setMessage('');
     try {
-      await submit('secret', { repository, name, value });
+      await submit(accountFetch, 'secret', { repository, name, value });
       setValue(''); setMessage(`บันทึก ${name} ใน ${repository} แล้ว — ยังไม่ได้ทดสอบว่า key ใช้งานได้`);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ'); }
     finally { setBusy(false); }
@@ -35,6 +37,7 @@ export function RepositorySecret({ repository, name, demo }: { repository: strin
 
 type Project = { key: string; name: string; organization: string };
 export function SonarProjects({ organization, demo, onSelect }: { organization: string; demo: boolean; onSelect: (project: Project) => void }) {
+  const accountFetch = useAccountFetch();
   const [token, setToken] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [nextPage, setNextPage] = useState<number | null>(null);
@@ -45,7 +48,7 @@ export function SonarProjects({ organization, demo, onSelect }: { organization: 
     setBusy(true); setMessage('');
     if (page === 1) { setProjects([]); setNextPage(null); }
     try {
-      const data = await submit('sonar', { token, organization, page });
+      const data = await submit(accountFetch, 'sonar', { token, organization, page });
       setProjects(previous => page === 1 ? data.projects : [...previous, ...data.projects]); setNextPage(data.nextPage);
       if (!data.projects.length) setMessage('ไม่พบโปรเจกต์ที่ token นี้เข้าถึงได้ใน organization นี้');
     } catch (e) { setMessage(e instanceof Error ? e.message : 'อ่านโปรเจกต์ไม่สำเร็จ'); }

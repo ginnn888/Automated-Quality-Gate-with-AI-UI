@@ -28,7 +28,7 @@ test('coverage is validated and written to the engine config', () => {
 });
 test('disabled Sonar emits no Sonar step, secret or properties', () => {
   const files = installationFiles(defaultSettings);
-  assert.equal(Object.keys(files).length, 2);
+  assert.equal(Object.keys(files).length, 3);
   assert.ok(!files['.github/workflows/quality-gate.yml'].includes('SONAR_TOKEN'));
 });
 test('Sonar receives both scan environment and Action input', () => {
@@ -75,4 +75,16 @@ test('preview is pinned and guards fork secrets', () => {
   assert.deepEqual(flow.jobs.checks.permissions, { contents: 'read' });
   assert.ok(!JSON.stringify(flow.jobs.generate).includes('actions/checkout'));
   assert.ok(!JSON.stringify(flow.jobs.report).includes('actions/checkout'));
+});
+
+
+test('both frameworks explicitly opt out even if stale project fields remain; opt in forwards only selected project', () => {
+  for (const projectType of ['javascript','angularjs'] as const) for (const sonar of [true,false]) {
+    const files=installationFiles({...defaultSettings,projectType,sonar,projectKey:'selected-project',organization:'selected-org'});
+    const jobs=parse(files['.github/workflows/quality-gate.yml']).jobs;
+    assert.equal(jobs.report.steps.at(-1).with.sonar_enabled,String(sonar));
+    assert.equal(Boolean(jobs.sonar),sonar);
+    assert.equal(jobs.report.steps.at(-1).with.sonar_project_key,sonar ? 'selected-project' : undefined);
+    assert.deepEqual(JSON.parse(files['audit-resolve.json']),{decisions:[]});
+  }
 });

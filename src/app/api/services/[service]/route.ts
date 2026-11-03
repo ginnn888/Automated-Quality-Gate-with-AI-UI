@@ -1,5 +1,6 @@
+import { matchesAccount } from '@/lib/account-request';
 import { NextRequest, NextResponse } from 'next/server';
-import { appUrl, sessionToken } from '@/lib/session';
+import { appUrl, unseal } from '@/lib/session';
 import { clientFor } from '@/lib/preparation-github';
 import { credentialSchema, saveRepositorySecret, sonarProjects, sonarSchema } from '@/lib/service-credentials';
 
@@ -7,10 +8,13 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest, context: { params: Promise<{ service: string }> }) {
   const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
   if (request.headers.get('origin') !== new URL(appUrl()).origin) return json({ error: 'คำขอต้องมาจากหน้าเว็บนี้' }, 403);
-  const token = await sessionToken();
+  const token = await unseal(request.cookies.get('qg_session')?.value);
   if (!token) return json({ error: 'กรุณาเข้าสู่ระบบ GitHub ใหม่' }, 401);
   const { service } = await context.params;
   if (!['secret', 'sonar'].includes(service)) return json({ error: 'ไม่พบบริการ' }, 404);
+  try {
+    if (!await matchesAccount(token, request.headers.get('x-qg-user-id'))) return json({code:'ACCOUNT_CHANGED', error:'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ'}, 409);
+  } catch { return json({error:'ยืนยันบัญชีไม่ได้ กรุณาเข้าสู่ระบบใหม่'}, 401); }
   let input;
   try {
     const raw = await request.text();

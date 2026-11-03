@@ -1,11 +1,13 @@
 'use client';
 
+import { useAccountFetch } from './account-boundary';
 import { useState } from 'react';
 import { Check, ExternalLink, FileCode2, GitPullRequest, LoaderCircle } from 'lucide-react';
 import type { Settings } from '@/lib/config';
 import type { PreparationPreview } from '@/lib/preparation-github';
 
 export default function Installation({ repository, demo, settings }: { repository: string; demo: boolean; settings: Settings }) {
+  const accountFetch = useAccountFetch();
   const [preview, setPreview] = useState<PreparationPreview | null>(null);
   const [busy, setBusy] = useState<'inspect' | 'create' | null>(null);
   const [error, setError] = useState('');
@@ -14,7 +16,7 @@ export default function Installation({ repository, demo, settings }: { repositor
     if (demo || busy) return;
     setBusy('inspect'); setError(''); setPreview(null); setPull(null);
     try {
-      const response = await fetch('/api/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'install', repository, settings }) });
+      const response = await accountFetch('/api/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'install', repository, settings }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setPreview(data.preview); setPull(data.pull);

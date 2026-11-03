@@ -1,6 +1,7 @@
+import { matchesAccount } from '@/lib/account-request';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { appUrl, sessionToken } from '@/lib/session';
+import { appUrl, unseal } from '@/lib/session';
 import { clientFor, createPreparationPR, inspectRepository, PreparationError } from '@/lib/preparation-github';
 import { GitHubError } from '@/lib/github';
 
@@ -9,8 +10,11 @@ const schema = z.object({ repository: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]
 export async function POST(request: NextRequest) {
   const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
   if (request.headers.get('origin') !== new URL(appUrl()).origin) return json({ error: 'คำขอต้องมาจากหน้าเว็บนี้' }, 403);
-  const token = await sessionToken();
+  const token = await unseal(request.cookies.get('qg_session')?.value);
   if (!token) return json({ error: 'กรุณาเข้าสู่ระบบ GitHub ก่อน' }, 401);
+  try {
+    if (!await matchesAccount(token, request.headers.get('x-qg-user-id'))) return json({code:'ACCOUNT_CHANGED', error:'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ'}, 409);
+  } catch { return json({error:'ยืนยันบัญชีไม่ได้ กรุณาเข้าสู่ระบบใหม่'}, 401); }
   let input;
   try {
     const raw = await request.text();

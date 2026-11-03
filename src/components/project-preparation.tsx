@@ -1,10 +1,12 @@
 'use client';
 
+import { useAccountFetch } from './account-boundary';
 import { useState } from 'react';
 import { Check, ExternalLink, FileCode2, GitPullRequest, LoaderCircle, Search } from 'lucide-react';
 import type { PreparationPreview } from '@/lib/preparation-github';
 
 export default function ProjectPreparation({ repository, demo }: { repository: string; demo: boolean }) {
+  const accountFetch = useAccountFetch();
   const [preview, setPreview] = useState<PreparationPreview | null>(null);
   const [busy, setBusy] = useState<'inspect' | 'create' | null>(null);
   const [error, setError] = useState('');
@@ -12,7 +14,7 @@ export default function ProjectPreparation({ repository, demo }: { repository: s
   async function inspect() {
     setBusy('inspect'); setError(''); setPreview(null); setPull(null);
     try {
-      const response = demo ? await fetch('/api/preparation/demo') : await fetch('/api/preparation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'inspect', repository }) });
+      const response = demo ? await accountFetch('/api/preparation/demo') : await accountFetch('/api/preparation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'inspect', repository }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setPreview(data);
@@ -23,7 +25,7 @@ export default function ProjectPreparation({ repository, demo }: { repository: s
     if (!preview || demo) return;
     setBusy('create'); setError('');
     try {
-      const response = await fetch('/api/preparation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', repository, baseSha: preview.baseSha, digest: preview.digest }) });
+      const response = await accountFetch('/api/preparation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', repository, baseSha: preview.baseSha, digest: preview.digest }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setPull(data);
