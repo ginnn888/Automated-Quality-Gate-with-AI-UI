@@ -20,7 +20,7 @@ function validApiUrl(value: string) {
 }
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@v1.2.0';
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@v1.2.1';
 // Pinned Action release tag. Installation verifies the ref exists on GitHub before creating a PR.
 export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
