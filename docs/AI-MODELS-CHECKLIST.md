@@ -14,7 +14,7 @@
 ## ก่อนทดลองบน GitHub
 
 1. เผยแพร่ commit ของ Action รุ่นใหม่ตาม `flexibleEngineRef` ใน `src/lib/config.ts` ไปยัง repository `test-github-marketplace` ให้เข้าถึงได้บน GitHub โดยต้องมีทั้ง source และ `dist/index.js` ที่ build แล้ว
-   รุ่นที่เว็บอ้างอิงคือ commit `3d88cb218b4fa1ea2db009ab1531b9c332b52ffe` ซึ่งเผยแพร่บน `main` ของ Action แล้ว หากใช้วิธี squash/rebase จน SHA เปลี่ยน ต้องอัปเดต `flexibleEngineRef` ให้ตรง commit ที่มี bundle รุ่นนี้บน GitHub แล้วทดสอบเว็บอีกครั้ง
+   เว็บอ้างอิง Action ผ่าน tag `v1.2.0` ซึ่งต้องมีอยู่ใน repository และชี้ไปยังรุ่นที่มี source กับ `dist/index.js` ที่ build แล้ว หากปล่อย tag รุ่นใหม่ ให้เปลี่ยน `engineRef` ใน `src/lib/config.ts` ให้ตรงกับ tag ใหม่และทดสอบเว็บอีกครั้ง
 2. หากยังไม่เผยแพร่ เว็บจะหยุดที่ตรวจความพร้อมและแจ้งว่าไม่สามารถยืนยัน Action รุ่นใหม่ได้ จะไม่สร้าง PR ที่อ้างอิง commit ที่ยังไม่มีบน GitHub
 3. ตั้งค่า GitHub App/env และสิทธิ์ตาม README เดิม ใช้ repository สำหรับทดลองก่อน
 4. ไม่ต้องเปลี่ยน workflow ของ repo เดิมทั้งหมดในครั้งเดียว เปลี่ยนเฉพาะ repo ทดลองผ่าน PR ก่อน
