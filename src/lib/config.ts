@@ -56,7 +56,7 @@ export function installationFiles(input: Settings) {
           download('aq-generated-tests', '.aq-generated'),
           { name: 'Run tests and measure coverage without AI keys or write permissions', uses, if: 'always()', with: { ...identity, phase: 'checks', install_status: '${{ steps.install.outcome }}' } },
           upload('quality-gate-results', '.gate-state.json\ncoverage/') ] },
-      ...(s.sonar ? { sonar: { needs: 'checks', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
+      ...(s.sonar ? { sonar: { needs: 'checks', if: "always() && !startsWith(github.head_ref, 'quality-gate/install-') && (" + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
         permissions: { contents: 'read' },
         steps: [
           { uses: 'actions/checkout@v4', with: { ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false, 'fetch-depth': 0 } },
