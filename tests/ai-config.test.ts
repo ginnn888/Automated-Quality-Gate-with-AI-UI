@@ -18,7 +18,7 @@ test('legacy browser timeout values are ignored and never reach the workflow', (
 });
 
 test('JavaScript forwards arbitrary model, exact URL and secret reference, retaining PR guards', () => {
-  assert.match(flexibleEngineRef, /@[a-f0-9]{40}$/);
+  assert.match(flexibleEngineRef, /@codex\/pr-comments$/);
   const workflow = parse(installationFiles(custom)['.github/workflows/quality-gate.yml']);
   const step = workflow.jobs.generate.steps.find((s: { uses?: string }) => s.uses === flexibleEngineRef);
   assert.equal(step.with.ai_provider, 'openai-compatible');

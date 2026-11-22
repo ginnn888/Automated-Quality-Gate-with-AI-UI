@@ -30,7 +30,7 @@ function fakeGitHub(options: { canPush?: boolean; truncated?: boolean; failPR?: 
   const api: GitHubClient = async <T>(path: string, method = 'GET', body?: unknown): Promise<T> => {
     calls.push({ path, method, body });
     let result: unknown;
-    if (path === `/repos/${flexibleEngineRef.replace('@', '/commits/')}`) result = { sha: flexibleEngineRef.split('@')[1] };
+    if (path === `/repos/${flexibleEngineRef.split('@')[0] + '/commits/' + encodeURIComponent(flexibleEngineRef.split('@')[1])}`) result = { sha: flexibleEngineRef.split('@')[1] };
     else if (path === '/repos/user/app') result = { full_name: 'user/app', default_branch: 'main', permissions: { push: options.canPush !== false } };
     else if (path.endsWith('/git/ref/heads/main')) result = { object: { sha: 'a'.repeat(40) } };
     else if (path.endsWith(`/git/commits/${'a'.repeat(40)}`)) result = { tree: { sha: 'old-tree' } };

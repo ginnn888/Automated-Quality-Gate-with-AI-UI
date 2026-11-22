@@ -8,6 +8,12 @@ test('Sonar metadata uses an absolute workspace path and AI never enables fallba
     const workflow=parse(installationFiles({...defaultSettings,projectType,sonar:true,projectKey:'project',organization:'org'})['.github/workflows/quality-gate.yml']);
     const scan=workflow.jobs.sonar.steps.find((s: {name?:string})=>s.name==='SonarCloud Scan');
     assert.ok(scan.with.args.includes('-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt'));
+    const diagnose = workflow.jobs.report.steps.find((step: {id?:string})=>step.id==='diagnose');
+    assert.equal(scan.id,'scan');
+    assert.equal(workflow.jobs.report.permissions.actions,'read');
+    assert.match(diagnose.if,/scan_outcome == 'failure'/);
+    assert.match(diagnose.run,/Automatic Analysis is enabled/);
+    assert.equal(workflow.jobs.report.steps.at(-1).with.sonar_scan_reason, '${{ steps.diagnose.outputs.reason }}');
     assert.equal(workflow.jobs.generate.steps[0].with.ai_fallback_models, undefined);
   }
 });
@@ -67,7 +73,7 @@ test('rejects missing Sonar config and newline injection', () => {
 });
 test('preview is pinned and guards fork secrets', () => {
   const workflow = installationFiles(defaultSettings)['.github/workflows/quality-gate.yml'];
-  assert.match(workflow, /marketplace@[a-f0-9]{40}/);
+  assert.match(workflow, /marketplace@codex\/pr-comments/);
   assert.ok(workflow.includes('github.event.pull_request.head.repo.full_name == github.repository'));
   assert.ok(workflow.includes('${{ secrets.GEMINI_API_KEY }}'));
   assert.ok(workflow.includes('pull_request_target'));

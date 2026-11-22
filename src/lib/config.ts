@@ -20,8 +20,8 @@ function validApiUrl(value: string) {
 }
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = { projectType: 'javascript', aiProvider: 'gemini', aiApiUrl: '', geminiModel: 'gemini-3.1-flash-lite', coverage: 80, sonar: false, projectKey: '', organization: '' };
-export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@v1.2.1';
-// Pinned Action release tag. Installation verifies the ref exists on GitHub before creating a PR.
+export const engineRef = 'NonnaritRammaneekultawat-6609650459/test-github-marketplace@codex/pr-comments';
+// Local integration branch. Installation verifies the ref exists on GitHub before creating a PR.
 export const flexibleEngineRef = engineRef;
 export const aiSecretName = (settings: Settings) => settings.aiProvider === 'openai-compatible' ? 'AI_API_KEY' as const : 'GEMINI_API_KEY' as const;
 
@@ -43,42 +43,72 @@ export function installationFiles(input: Settings) {
     permissions: {},
     concurrency: { group: 'quality-${{ github.workflow }}-pr-${{ github.event.pull_request.number }}', 'cancel-in-progress': true },
     jobs: {
-      generate: { if: guard, 'runs-on': 'ubuntu-latest',
+      generate: {
+        if: guard, 'runs-on': 'ubuntu-latest',
         permissions: { contents: 'read', 'pull-requests': 'read' },
-        steps: [{ name: 'Generate tests and review without executing PR code', uses,
-          with: { ...identity, ...ai, phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token } },
-          upload('aq-generated-tests', '.aq-generated/') ] },
-      checks: { needs: 'generate', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 15,
+        steps: [{
+          name: 'Generate tests and review without executing PR code', uses,
+          with: { ...identity, ...ai, phase: 'generate', [s.aiProvider === 'gemini' ? 'gemini_api_key' : 'ai_api_key']: '${{ secrets.' + secret + ' }}', github_token: token }
+        },
+        upload('aq-generated-tests', '.aq-generated/')]
+      },
+      checks: {
+        needs: 'generate', if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 15,
         permissions: { contents: 'read' },
-        steps: [ { uses: 'actions/checkout@v4', with: { repository: '${{ github.event.pull_request.head.repo.full_name }}', ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false } },
-          { uses: 'actions/setup-node@v4', with: { 'node-version': '24' } },
-          { id: 'install', run: 'npm ci --ignore-scripts', 'continue-on-error': true },
-          download('aq-generated-tests', '.aq-generated'),
-          { name: 'Run tests and measure coverage without AI keys or write permissions', uses, if: 'always()', with: { ...identity, phase: 'checks', install_status: '${{ steps.install.outcome }}' } },
-          upload('quality-gate-results', '.gate-state.json\ncoverage/') ] },
-      ...(s.sonar ? { sonar: { needs: 'checks', if: "always() && !startsWith(github.head_ref, 'quality-gate/install-') && (" + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
-        permissions: { contents: 'read' },
-        steps: [
-          { uses: 'actions/checkout@v4', with: { ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false, 'fetch-depth': 0 } },
-          download('quality-gate-results', '.'),
-          { name: 'SonarCloud Scan', uses: 'SonarSource/sonarqube-scan-action@v6', env: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' },
-            with: { args: [
-              '-Dproject.settings=/dev/null',
-              '-Dsonar.host.url=https://sonarcloud.io', '-Dsonar.projectKey=' + s.projectKey, '-Dsonar.organization=' + s.organization,
-              '-Dsonar.sources=src', '-Dsonar.exclusions=src/**/*.test.js,src/**/*.spec.js,src/**/*.test.cjs,src/**/*.spec.cjs',
-              '-Dsonar.javascript.lcov.reportPaths=' + (s.projectType === 'angularjs' ? 'coverage/quality-gate/lcov.info' : 'coverage/lcov.info'),
-              '-Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}',
-              '-Dsonar.pullrequest.key=${{ github.event.pull_request.number }}',
-              '-Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}',
-              '-Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}',
-              '-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt',
-            ].join('\n') } },
-          upload('quality-gate-sonar', '.scannerwork/report-task.txt'),
-        ] } } : {}),
-      report: { needs: ['generate', 'checks', ...(s.sonar ? ['sonar'] : [])], if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 5,
-        permissions: { contents: 'write', 'pull-requests': 'write', checks: 'write' },
-        steps: [ download('aq-generated-tests', '.aq-generated'), download('quality-gate-results', '.'), ...(s.sonar ? [download('quality-gate-sonar', '.aq-sonar')] : []),
-          { name: 'Save tests to PR and publish results', uses, with: { ...identity, ...ai, phase: 'report', sonar_enabled: String(s.sonar), github_token: token, persist_tests: 'true', report_only: 'false', ...(s.sonar ? { sonar_token: '${{ secrets.SONAR_TOKEN }}', sonar_project_key: s.projectKey, sonar_scan_status: '${{ needs.sonar.result }}' } : {}) } } ] },
+        steps: [{ uses: 'actions/checkout@v4', with: { repository: '${{ github.event.pull_request.head.repo.full_name }}', ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false } },
+        { uses: 'actions/setup-node@v4', with: { 'node-version': '24' } },
+        { id: 'install', run: 'npm ci --ignore-scripts', 'continue-on-error': true },
+        download('aq-generated-tests', '.aq-generated'),
+        { name: 'Run tests and measure coverage without AI keys or write permissions', uses, if: 'always()', with: { ...identity, phase: 'checks', install_status: '${{ steps.install.outcome }}' } },
+        upload('quality-gate-results', '.gate-state.json\ncoverage/')]
+      },
+      ...(s.sonar ? {
+        sonar: {
+          needs: 'checks', if: "always() && !startsWith(github.head_ref, 'quality-gate/install-') && (" + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
+          outputs: { scan_outcome: '${{ steps.scan.outcome }}' },
+          permissions: { contents: 'read' },
+          steps: [
+            { uses: 'actions/checkout@v4', with: { ref: '${{ github.event.pull_request.head.sha }}', 'persist-credentials': false, 'fetch-depth': 0 } },
+            download('quality-gate-results', '.'),
+            {
+              id: 'scan', name: 'SonarCloud Scan', uses: 'SonarSource/sonarqube-scan-action@v6', env: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' },
+              with: {
+                args: [
+                  '-Dproject.settings=/dev/null',
+                  '-Dsonar.host.url=https://sonarcloud.io', '-Dsonar.projectKey=' + s.projectKey, '-Dsonar.organization=' + s.organization,
+                  '-Dsonar.sources=src', '-Dsonar.exclusions=src/**/*.test.js,src/**/*.spec.js,src/**/*.test.cjs,src/**/*.spec.cjs',
+                  '-Dsonar.javascript.lcov.reportPaths=' + (s.projectType === 'angularjs' ? 'coverage/quality-gate/lcov.info' : 'coverage/lcov.info'),
+                  '-Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}',
+                  '-Dsonar.pullrequest.key=${{ github.event.pull_request.number }}',
+                  '-Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}',
+                  '-Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}',
+                  '-Dsonar.scanner.metadataFilePath=${{ github.workspace }}/.scannerwork/report-task.txt',
+                ].join('\n')
+              }
+            },
+            upload('quality-gate-sonar', '.scannerwork/report-task.txt'),
+          ]
+        }
+      } : {}),
+      report: {
+        needs: ['generate', 'checks', ...(s.sonar ? ['sonar'] : [])], if: 'always() && (' + guard + ')', 'runs-on': 'ubuntu-latest', 'timeout-minutes': 5,
+        permissions: { contents: 'write', 'pull-requests': 'write', checks: 'write', ...(s.sonar ? { actions: 'read' } : {}) },
+        steps: [download('aq-generated-tests', '.aq-generated'), download('quality-gate-results', '.'), ...(s.sonar ? [download('quality-gate-sonar', '.aq-sonar')] : []),
+        ...(s.sonar ? [{
+          id: 'diagnose', name: 'Identify scanner errors from this run',
+          if: "always() && needs.sonar.outputs.scan_outcome == 'failure'", 'continue-on-error': true,
+          env: { GH_TOKEN: token },
+          run: [
+            'jobs="/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs"',
+            'id=$(gh api --paginate "$jobs" --jq \'.jobs[] | select(.name == "sonar") | .id\')',
+            '[[ "$id" =~ ^[0-9]+$ ]] || exit 0',
+            'if gh api "/repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" | grep -E "ERROR[[:space:]]+You are running CI analysis while Automatic Analysis is enabled[.]" > /dev/null; then',
+            '  echo "reason=automatic_analysis_enabled" >> "$GITHUB_OUTPUT"',
+            'fi',
+          ].join('\n'),
+        }] : []),
+        { name: 'Save tests to PR and publish results', uses, with: { ...identity, ...ai, phase: 'report', sonar_enabled: String(s.sonar), github_token: token, persist_tests: 'true', report_only: 'false', ...(s.sonar ? { sonar_token: '${{ secrets.SONAR_TOKEN }}', sonar_project_key: s.projectKey, sonar_scan_status: '${{ needs.sonar.result }}', sonar_scan_reason: '${{ steps.diagnose.outputs.reason }}' } : {}) } }]
+      },
     },
   };
   const files: Record<string, string> = {

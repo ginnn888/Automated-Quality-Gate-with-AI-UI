@@ -9,7 +9,7 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
   settings = settingsSchema.parse(settings);
   {
     const [repository, ref] = flexibleEngineRef.split('@');
-    try { await api(`/repos/${repository}/commits/${ref}`); }
+    try { await api(`/repos/${repository}/commits/${encodeURIComponent(ref)}`); }
     catch { throw new PreparationError('ยังยืนยัน Action รุ่นติดตั้งใหม่ไม่ได้ ต้องเผยแพร่ commit ของ Action ไป GitHub และตรวจสิทธิ์เข้าถึงก่อน จึงจะสร้าง PR ติดตั้งได้', 409); }
   }
   const base = await inspectRepository(api, repository, settings.projectType);
