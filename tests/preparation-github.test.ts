@@ -45,24 +45,24 @@ test('inspection is read-only; PR creates a branch and atomic commit, never writ
 });
 test('denies read-only users before any repository file read or write', async () => {
   const { api, calls } = fakeGitHub({ canPush: false });
-  await assert.rejects(inspectRepository(api, 'user/app'), /สิทธิ์/);
+  await assert.rejects(inspectRepository(api, 'user/app'), /writable/);
   assert.equal(calls.length, 1);
 });
 test('stale or tampered previews cannot create a PR', async () => {
   const { api, calls } = fakeGitHub();
   const preview = await inspectRepository(api, 'user/app');
-  await assert.rejects(createPreparationPR(api, 'user/app', 'b'.repeat(40), preview.digest), /เปลี่ยน/);
-  await assert.rejects(createPreparationPR(api, 'user/app', preview.baseSha, 'b'.repeat(64)), /เปลี่ยน/);
+  await assert.rejects(createPreparationPR(api, 'user/app', 'b'.repeat(40), preview.digest), /changed after inspection/);
+  await assert.rejects(createPreparationPR(api, 'user/app', preview.baseSha, 'b'.repeat(64)), /changed after inspection/);
   assert.ok(calls.every(c => c.method === 'GET'));
 });
 test('truncated file listings are not mistaken for missing config', async () => {
   const { api } = fakeGitHub({ truncated: true });
-  await assert.rejects(inspectRepository(api, 'user/app'), /ใหญ่เกิน/);
+  await assert.rejects(inspectRepository(api, 'user/app'), /exceeds the file limit/);
 });
 test('PR failure can be retried using the existing verified branch', async () => {
   const { api, calls } = fakeGitHub({ failPR: true });
   const preview = await inspectRepository(api, 'user/app');
-  await assert.rejects(createPreparationPR(api, 'user/app', preview.baseSha, preview.digest), /เตรียม branch/);
+  await assert.rejects(createPreparationPR(api, 'user/app', preview.baseSha, preview.digest), /Created branch/);
   const retry = await createPreparationPR(api, 'user/app', preview.baseSha, preview.digest);
   assert.equal(retry.number, 1);
   assert.equal(calls.filter(c => c.path.endsWith('/git/refs') && c.method === 'POST').length, 1);
@@ -75,5 +75,5 @@ test('does not reuse an existing PR if someone changed its branch', async () => 
     if (path.endsWith('/git/commits/prepared-commit')) return { tree: { sha: 'modified-by-user' }, parents: [{ sha: preview.baseSha }] } as T;
     return api<T>(path, method, body);
   };
-  await assert.rejects(createPreparationPR(changed, 'user/app', preview.baseSha, preview.digest), /branch.*แก้ไข/);
+  await assert.rejects(createPreparationPR(changed, 'user/app', preview.baseSha, preview.digest), /branch changed/);
 });

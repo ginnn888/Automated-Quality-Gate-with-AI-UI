@@ -10,24 +10,24 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
   {
     const [repository, ref] = flexibleEngineRef.split('@');
     try { await api(`/repos/${repository}/commits/${encodeURIComponent(ref)}`); }
-    catch { throw new PreparationError('ยังยืนยัน Action รุ่นติดตั้งใหม่ไม่ได้ ต้องเผยแพร่ commit ของ Action ไป GitHub และตรวจสิทธิ์เข้าถึงก่อน จึงจะสร้าง PR ติดตั้งได้', 409); }
+    catch { throw new PreparationError('Could not verify the Action version. Publish the Action commit and check access before creating an installation pull request.', 409); }
   }
   const base = await inspectRepository(api, repository, settings.projectType);
   if (base.plan.status === 'blocked') throw new PreparationError(base.plan.messages.join(' '));
   for (const name of settings.sonar ? [aiSecretName(settings), 'SONAR_TOKEN'] : [aiSecretName(settings)]) {
     try { await api(`/repos/${repository}/actions/secrets/${name}`); }
-    catch { throw new PreparationError(`ยังตรวจพบ ${name} ไม่ได้ กรุณาบันทึก key และตรวจสิทธิ์ Secrets ของ App`, 409); }
+    catch { throw new PreparationError(`Could not verify ${name} in repository secrets. Save the key and check the GitHub App permissions.`, 409); }
   }
   const tree = await api<{ truncated: boolean; tree: { path: string; type: string; mode: string; sha: string; size?: number }[] }>(`/repos/${repository}/git/trees/${base.treeSha}?recursive=1`);
-  if (tree.truncated) throw new PreparationError('รายการไฟล์ไม่ครบ จึงยังติดตั้งไม่ได้');
+  if (tree.truncated) throw new PreparationError('Installation requires a complete file listing.');
   const files: PreparationPlan['files'] = [...base.plan.files];
   const generated: Record<string, string> = { ...installationFiles(settings), ...(settings.projectType === 'angularjs' ? angularToolkit : {}) };
   const alternate = tree.tree.find(f => f.path === '.github/workflows/aq-review.yml');
   if (alternate && settings.projectType === 'angularjs') {
-    if (tree.tree.some(f => f.path === '.github/workflows/quality-gate.yml')) throw new PreparationError('พบทั้ง quality-gate.yml และ aq-review.yml กรุณาเลือกเก็บ workflow เดียวบน GitHub ก่อน เพื่อไม่ให้ตรวจซ้ำ');
-    if (alternate.mode !== '100644' || alternate.type !== 'blob' || (alternate.size || 0) > 100000) throw new PreparationError('ไฟล์ aq-review.yml ไม่ใช่ไฟล์ปกติ');
+    if (tree.tree.some(f => f.path === '.github/workflows/quality-gate.yml')) throw new PreparationError('Both quality-gate.yml and aq-review.yml exist. Keep one workflow on GitHub to avoid duplicate checks.');
+    if (alternate.mode !== '100644' || alternate.type !== 'blob' || (alternate.size || 0) > 100000) throw new PreparationError('aq-review.yml must be a regular file.');
     const old = await api<{ content: string; encoding: string }>(`/repos/${repository}/git/blobs/${alternate.sha}`);
-    if (old.encoding !== 'base64' || classifyInstallation(Buffer.from(old.content, 'base64').toString('utf8'), generated['config_cov.json']) !== 'active') throw new PreparationError('มี aq-review.yml อยู่แล้วแต่ไม่ใช่ workflow AngularJS ที่รู้จัก กรุณาตรวจไฟล์เดิมก่อนติดตั้ง');
+    if (old.encoding !== 'base64' || classifyInstallation(Buffer.from(old.content, 'base64').toString('utf8'), generated['config_cov.json']) !== 'active') throw new PreparationError('The existing aq-review.yml differs from the recognized AngularJS workflow. Review it before installation.');
     generated['.github/workflows/aq-review.yml'] = generated['.github/workflows/quality-gate.yml'];
     delete generated['.github/workflows/quality-gate.yml'];
   }
@@ -35,12 +35,12 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
     const existing = tree.tree.find(f => f.path === path);
     let before: string | null = null;
     if (existing) {
-      if (existing.type !== 'blob' || existing.mode !== '100644' || (existing.size || 0) > 100000) throw new PreparationError(`ไม่สามารถแก้ ${path} อัตโนมัติ`);
+      if (existing.type !== 'blob' || existing.mode !== '100644' || (existing.size || 0) > 100000) throw new PreparationError(`Cannot update ${path} automatically.`);
       const blob = await api<{ content: string; encoding: string }>(`/repos/${repository}/git/blobs/${existing.sha}`);
-      if (blob.encoding !== 'base64') throw new PreparationError('อ่านไฟล์เดิมไม่ได้');
+      if (blob.encoding !== 'base64') throw new PreparationError('Could not read the existing file.');
       before = Buffer.from(blob.content, 'base64').toString('utf8');
     }
-    if (path.startsWith('quality-gate/') && before !== null && before !== after) throw new PreparationError(`มี ${path} เดิมที่ต่างจากชุดเครื่องมือ กรุณาตรวจไฟล์ก่อนเพื่อไม่เขียนทับงานเดิม`);
+    if (path.startsWith('quality-gate/') && before !== null && before !== after) throw new PreparationError(`Existing file ${path} differs from the toolkit version. Review the file before installing.`);
     if (path === 'audit-resolve.json' && before !== null) continue;
     let content = after;
     if (path === 'config_cov.json' && before !== null) {
@@ -48,34 +48,34 @@ export async function inspectInstallation(api: GitHubClient, repository: string,
         const old = JSON.parse(before);
         if (!old || typeof old !== 'object' || Array.isArray(old) || (old.files && (typeof old.files !== 'object' || Array.isArray(old.files) || Object.values(old.files).some(n => !Number.isInteger(n) || Number(n) < 1 || Number(n) > 100)))) throw new Error();
         content = JSON.stringify({ ...old, global: settings.coverage, files: old.files || {} }, null, 2) + '\n';
-      } catch { throw new PreparationError('อ่าน config_cov.json เดิมไม่ได้ กรุณาตรวจไฟล์ก่อนติดตั้ง'); }
+      } catch { throw new PreparationError('Could not read config_cov.json. Review the file before installing.'); }
     }
     if (before !== content) files.push({ path, before, after: content });
   }
   const warnings: string[] = [];
-  if (!settings.sonar && tree.tree.some(f => f.path === 'sonar-project.properties')) warnings.push('มี sonar-project.properties เดิม แต่ workflow ที่ติดตั้งครั้งนี้ปิด SonarCloud และไม่ใช้ไฟล์นั้น');
+  if (!settings.sonar && tree.tree.some(f => f.path === 'sonar-project.properties')) warnings.push('The repository contains sonar-project.properties. This installation has SonarCloud disabled and will skip that file.');
   const managed = Object.keys(generated).filter(p => p.startsWith('.github/workflows/'));
   const otherWorkflows = tree.tree.filter(f => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f.path) && !managed.includes(f.path));
   for (const entry of otherWorkflows.slice(0, 30)) {
     if (entry.type !== 'blob' || entry.mode !== '100644' || (entry.size || 0) > 100000) {
-      warnings.push('ตรวจ workflow เดิมไม่ได้: ' + entry.path); continue;
+      warnings.push('Could not inspect existing workflow: ' + entry.path); continue;
     }
     const blob = await api<{content:string; encoding:string}>(`/repos/${repository}/git/blobs/${entry.sha}`);
-    if (blob.encoding !== 'base64') { warnings.push('ตรวจ workflow เดิมไม่ได้: ' + entry.path); continue; }
+    if (blob.encoding !== 'base64') { warnings.push('Could not inspect existing workflow: ' + entry.path); continue; }
     const source = Buffer.from(blob.content, 'base64').toString('utf8');
-    if (/sonar|reusable-gate|test-github-marketplace/i.test(source)) warnings.push('พบ workflow เดิมที่อาจเรียก SonarCloud หรือ Quality Gate ซ้ำ: ' + entry.path + ' — โปรดตรวจบน GitHub; การตั้งค่าครั้งนี้ไม่เปลี่ยนหรือลบ workflow นี้');
+    if (/sonar|reusable-gate|test-github-marketplace/i.test(source)) warnings.push('Another workflow may run SonarCloud or Automated Quality Gate: ' + entry.path + ' — review it on GitHub to avoid duplicate runs.');
   }
-  if (otherWorkflows.length > 30) warnings.push('มี workflow จำนวนมาก ตรวจได้เพียง 30 ไฟล์แรก โปรดตรวจ workflow ที่เหลือบน GitHub');
+  if (otherWorkflows.length > 30) warnings.push('Only the first 30 workflows were checked. Review the remaining workflows on GitHub.');
   const plan: PreparationPlan = { status: files.length ? 'changes' : 'ready', files, messages: [
     ...warnings,
-    ...base.plan.messages.filter(m => !m.includes('PR นี้เตรียมเครื่องมือเท่านั้น')),
-    'PR เดียวรวมไฟล์เตรียมโปรเจกต์ workflow และ coverage config; ติดตั้งแล้วไม่ได้แปลว่าผลตรวจผ่าน',
-    'เมื่อเปิด PR งาน Action จะสร้างเทสต์ เพิ่มไฟล์เทสต์ใน PR เดียวกัน และรายงาน coverage; ต้องอนุญาต GitHub Actions ให้เขียน Contents และ Checks',
-    ...(settings.projectType === 'angularjs' ? ['ชุดเครื่องมือ AngularJS อยู่ใน quality-gate/ รันซ้ำด้วย npm ci --prefix quality-gate และ node quality-gate/run.cjs'] : []),
-    'หากไม่มีไฟล์ JavaScript ใน src/ เปลี่ยนแปลง การตรวจอาจถูกข้าม',
-    'หลัง merge PR ติดตั้ง ให้สร้าง branch งานใหม่จาก branch หลัก แล้วเปิด PR แก้โค้ดเพื่อดูรายงาน; หากตรวจไม่สำเร็จ ดูรายละเอียดใน GitHub Actions',
-    'การตั้งค่า Secrets ยืนยันได้เฉพาะว่ามีชื่อ key ไม่ได้ยืนยันว่า key ใช้งานได้',
-    'ไฟล์ที่มีอยู่จะถูกแก้ตามตัวอย่างด้านล่างใน PR เท่านั้น ไม่มีการ merge อัตโนมัติ',
+    ...base.plan.messages.filter(m => !m.includes('This pull request prepares test tooling only')),
+    'This pull request includes project setup files, the workflow and coverage settings. Check results after installation.',
+    'The Action generates tests in the pull request and reports coverage. Grant GitHub Actions write access to Contents and Checks.',
+    ...(settings.projectType === 'angularjs' ? ['The AngularJS toolkit is in quality-gate/. Run npm ci --prefix quality-gate and node quality-gate/run.cjs to repeat the checks.'] : []),
+    'Checks may be skipped when no JavaScript files change in src/.',
+    'After merging the installation, create a branch from the updated default branch and open a pull request with code changes. Check GitHub Actions for run details.',
+    'The app checks for secret names. The workflow verifies credentials when it uses them.',
+    'Review the proposed file changes below. Merge the pull request on GitHub to apply them.',
   ] };
   return { ...base, plan, digest: createHash('sha256').update(JSON.stringify({ repository, sha: base.baseSha, plan })).digest('hex') };
 }

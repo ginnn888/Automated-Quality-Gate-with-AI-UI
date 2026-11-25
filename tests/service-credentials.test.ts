@@ -62,7 +62,7 @@ test('GitHub failures identify the operation without exposing upstream secrets',
       assert.ok(error instanceof GitHubError);
       const message = githubFailure(error);
       assert.match(message, /403/);
-      assert.match(message, /สร้าง branch/);
+      assert.match(message, /Create branch/);
       assert.match(message, /workflow/);
       assert.match(message, /ABC:123/);
       assert.ok(!message.includes('secret-private-value'));

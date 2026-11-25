@@ -5,12 +5,12 @@ export const settingsSchema = z.object({
   projectType: z.enum(['javascript', 'angularjs']).default('javascript'),
   aiProvider: z.enum(['gemini', 'openai-compatible']).default('gemini'),
   aiApiUrl: z.string().max(2000).default(''),
-  geminiModel: z.string().trim().min(1).max(200).regex(/^[^\s\x00-\x1f\x7f]+$/).refine(v => !v.includes('${{'), 'ชื่อโมเดลต้องไม่มี workflow expression').default('gemini-3.1-flash-lite'),
+  geminiModel: z.string().trim().min(1).max(200).regex(/^[^\s\x00-\x1f\x7f]+$/).refine(v => !v.includes('${{'), 'Model names cannot contain workflow expressions.').default('gemini-3.1-flash-lite'),
   coverage: z.number().int().min(1).max(100),
   sonar: z.boolean(),
   projectKey: z.string().max(200).regex(/^[a-zA-Z0-9_.:-]*$/),
   organization: z.string().max(100).regex(/^[a-zA-Z0-9_-]*$/),
-}).refine(v => v.aiProvider !== 'openai-compatible' || validApiUrl(v.aiApiUrl), { message: 'กรอก HTTPS API URL แบบเต็ม โดยไม่มี key, query หรือ workflow expression ใน URL' }).refine(v => !v.sonar || Boolean(v.projectKey && v.organization), { message: 'กรอก Project key และ Organization ของ SonarCloud' });
+}).refine(v => v.aiProvider !== 'openai-compatible' || validApiUrl(v.aiApiUrl), { message: 'Enter a full HTTPS API URL without keys, query parameters or workflow expressions.' }).refine(v => !v.sonar || Boolean(v.projectKey && v.organization), { message: 'Enter the SonarCloud project key and organization key.' });
 
 function validApiUrl(value: string) {
   try {

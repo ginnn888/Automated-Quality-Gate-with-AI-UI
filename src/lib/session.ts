@@ -9,9 +9,9 @@ export function configured() {
 export function configurationIssues(): string[] {
   const issues: string[] = [];
   for (const name of ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'GITHUB_APP_SLUG']) {
-    if (!process.env[name]?.trim()) issues.push(`ยังไม่มีค่า ${name}`);
+    if (!process.env[name]?.trim()) issues.push(`Missing setting: ${name}`);
   }
-  if ((process.env.SESSION_SECRET?.length ?? 0) < 32) issues.push('SESSION_SECRET ต้องมีอย่างน้อย 32 ตัวอักษร');
+  if ((process.env.SESSION_SECRET?.length ?? 0) < 32) issues.push('SESSION_SECRET must be at least 32 characters long.');
   return issues;
 }
 function key() {

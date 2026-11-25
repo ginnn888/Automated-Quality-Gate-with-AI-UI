@@ -14,7 +14,7 @@ export function notifyLogout() {
 export function useAccountFetch() {
   const id = useContext(Account);
   return async (url: string, init: RequestInit = {}) => {
-    if (!id) throw new Error('กรุณาเข้าสู่ระบบใหม่');
+    if (!id) throw new Error('Please sign in again.');
     const headers = new Headers(init.headers);
     headers.set('X-QG-User-ID', String(id));
     const response = await fetch(url, {...init, headers, cache:'no-store'});
@@ -22,7 +22,7 @@ export function useAccountFetch() {
       const data = await response.clone().json().catch(() => ({}));
       if (response.status === 401 || data.code === 'ACCOUNT_CHANGED') {
         window.dispatchEvent(new Event('qg-account-invalid'));
-        throw new Error('บัญชีเปลี่ยนหรือหมดอายุ กรุณาโหลดหน้าใหม่');
+        throw new Error('Your session changed or expired. Reload this page.');
       }
     }
     return response;
@@ -63,6 +63,6 @@ export default function AccountBoundary({userId, children}: {userId:number; chil
       window.removeEventListener('qg-account-invalid', clear);
     };
   }, [userId]);
-  if (state !== 'ready') return <main><p>{state === 'checking' ? 'กำลังยืนยันบัญชี…' : 'บัญชีเปลี่ยน หมดอายุ หรือยืนยันไม่ได้ ล้างข้อมูลจากหน้านี้แล้ว'}</p><a href="/">โหลดหน้าใหม่เพื่อเข้าสู่บัญชีปัจจุบัน</a></main>;
+  if (state !== 'ready') return <main><p>{state === 'checking' ? 'Verifying your account…' : 'Your account could not be verified. This page has cleared its account data.'}</p><a href="/">Reload and verify account</a></main>;
   return <Account.Provider value={userId}>{children}</Account.Provider>;
 }

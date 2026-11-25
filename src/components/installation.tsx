@@ -20,18 +20,18 @@ export default function Installation({ repository, demo, settings }: { repositor
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setPreview(data.preview); setPull(data.pull);
-    } catch (e) { setError(e instanceof Error ? e.message : 'ติดตั้งไม่สำเร็จ'); }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Installation failed.'); }
     finally { setBusy(null); }
   }
-  return <section className="preparation" aria-label="ติดตั้ง Quality Gate">
-    <div className="preparation-heading"><div><h3><FileCode2 size={19}/> ติดตั้ง Quality Gate</h3><p>กด Install เพื่อให้ระบบตรวจและรวมไฟล์ที่จำเป็นใน PR เดียว แล้วตรวจและ merge บน GitHub</p></div><button className="primary" onClick={install} disabled={demo || Boolean(busy) || Boolean(pull)}>{busy ? <LoaderCircle size={16} className="spin"/> : <GitPullRequest size={16}/>} {busy ? 'กำลังตรวจไฟล์และสร้าง PR…' : 'Install / อัปเดต'}</button></div>
-    {demo && <p className="preparation-caption">โหมดตัวอย่างไม่สร้าง PR ติดตั้ง / อัปเดต กรุณาเชื่อมต่อ GitHub เพื่อใช้งานจริง</p>}
+  return <section className="preparation" aria-label="Install Automated Quality Gate">
+    <div className="preparation-heading"><div><h3><FileCode2 size={19}/> Install Automated Quality Gate</h3><p>Review the setup files in one pull request, then merge it on GitHub.</p></div><button className="primary" onClick={install} disabled={demo || Boolean(busy) || Boolean(pull)}>{busy ? <LoaderCircle size={16} className="spin"/> : <GitPullRequest size={16}/>} {busy ? 'Checking files and creating a pull request…' : 'Install or update'}</button></div>
+    {demo && <p className="preparation-caption">Connect GitHub to create an installation pull request. Demo mode uses sample data.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {preview && <div className="preparation-result" aria-live="polite">
-      <strong>{preview.plan.status === 'ready' ? 'ไฟล์ติดตั้งตรงกับค่าที่เลือกแล้ว' : preview.plan.status === 'blocked' ? 'ต้องปรับการตั้งค่าโปรเจกต์ก่อน' : `เตรียม ${preview.plan.files.length} ไฟล์ใน PR`}</strong>
-      {preview.plan.files.map(file => <details className="preparation-file" key={file.path}><summary><span>{file.before === null ? 'เพิ่ม' : 'แก้ไข'}</span> {file.path}</summary>{file.before !== null && <><p>เนื้อหาเดิม</p><pre className="code-preview"><code>{file.before}</code></pre></>}<p>เนื้อหาที่เสนอ</p><pre className="code-preview"><code>{file.after}</code></pre></details>)}
+      <strong>{preview.plan.status === 'ready' ? 'The installed files match your settings.' : preview.plan.status === 'blocked' ? 'Update the project configuration first.' : `Prepared ${preview.plan.files.length} files for this pull request`}</strong>
+      {preview.plan.files.map(file => <details className="preparation-file" key={file.path}><summary><span>{file.before === null ? 'Add' : 'Update'}</span> {file.path}</summary>{file.before !== null && <><p>Current content</p><pre className="code-preview"><code>{file.before}</code></pre></>}<p>Proposed content</p><pre className="code-preview"><code>{file.after}</code></pre></details>)}
       <ul>{preview.plan.messages.map(m => <li key={m}>{m}</li>)}</ul>
-      {pull && <div className="preparation-success"><Check size={19}/><div><strong>สร้าง PR #{pull.number} แล้ว — รอคุณตรวจและ merge</strong><a href={pull.url} target="_blank" rel="noreferrer">เปิด Pull Request <ExternalLink size={15}/></a><p>หลัง merge ดูผลที่แท็บ Actions แล้วเปิด PR แก้โค้ดใน src/ เพื่อทดสอบการรายงานใน PR</p></div></div>}
+      {pull && <div className="preparation-success"><Check size={19}/><div><strong>Pull request #{pull.number} is ready to review and merge.</strong><a href={pull.url} target="_blank" rel="noreferrer">Open pull request <ExternalLink size={15}/></a><p>After merging, open a pull request that changes code in src/ to see the report. Run details are available in Actions.</p></div></div>}
     </div>}
   </section>;
 }

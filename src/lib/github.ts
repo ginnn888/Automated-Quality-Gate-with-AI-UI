@@ -2,7 +2,7 @@ export class GitHubError extends Error {
   constructor(public status: number, public operation = '', public reason = '', public requestId = '') { super(`GitHub request failed (${status})`); }
 }
 export function githubFailure(error: GitHubError) {
-  return `GitHub HTTP ${error.status}${error.operation ? ` — ${error.operation}` : ''}: ${error.reason || (error.status === 401 ? 'session หมดอายุ กรุณาเข้าสู่ระบบใหม่' : error.status === 404 ? 'ไม่พบข้อมูลหรือ token เข้าถึงไม่ได้' : error.status === 422 ? 'GitHub ไม่รับข้อมูลที่ส่งหรือสถานะ branch ขัดแย้ง' : 'GitHub ปฏิเสธคำขอ ยังระบุสาเหตุไม่ได้')}${error.requestId ? ` (Request ID: ${error.requestId})` : ''}`;
+  return `GitHub HTTP ${error.status}${error.operation ? ` — ${error.operation}` : ''}: ${error.reason || (error.status === 401 ? 'Your session expired. Sign in again.' : error.status === 404 ? 'Resource not found or inaccessible to this token.' : error.status === 422 ? 'GitHub rejected the data or detected a branch conflict.' : 'GitHub rejected the request without a specific reason.')}${error.requestId ? ` (Request ID: ${error.requestId})` : ''}`;
 }
 export async function github<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(`https://api.github.com${path}`, {
@@ -13,20 +13,20 @@ export async function github<T>(token: string, path: string, method = 'GET', bod
     // Never return upstream bodies, request payloads, or credentials to the UI.
     const data = await response.json().catch(() => ({}));
     const message = typeof data?.message === 'string' ? data.message.toLowerCase() : '';
-    const reason = message.includes('workflow') ? 'GitHub ปฏิเสธการเขียน workflow ด้วย token ที่เว็บใช้อยู่'
-      : message.includes('rate limit') ? 'เกินขีดจำกัดการเรียก GitHub API กรุณารอแล้วลองใหม่'
-      : message.includes('resource not accessible') ? 'token ที่เว็บใช้อยู่เข้าถึงการทำงานนี้ไม่ได้ แม้หน้าตั้งค่า App อาจมีสิทธิ์แล้ว'
-      : message.includes('rules') || message.includes('protected') ? 'กฎของ repository ปฏิเสธการเปลี่ยนแปลงนี้'
-      : message.includes('bad credentials') ? 'GitHub token ใช้งานไม่ได้ กรุณาเข้าสู่ระบบใหม่'
-      : message.includes('empty') ? 'GitHub แจ้งว่า repository ยังว่าง'
+    const reason = message.includes('workflow') ? 'GitHub denied this token permission to write workflows.'
+      : message.includes('rate limit') ? 'GitHub API rate limit reached. Try again later.'
+      : message.includes('resource not accessible') ? 'This token cannot perform the operation. Check its approved permissions.'
+      : message.includes('rules') || message.includes('protected') ? 'Repository rules blocked this change.'
+      : message.includes('bad credentials') ? 'The GitHub token is invalid. Sign in again.'
+      : message.includes('empty') ? 'The repository is empty.'
       : '';
-    const operation = path.includes('/pulls') ? (method === 'POST' ? 'สร้าง Pull Request' : 'ค้นหา Pull Request เดิม')
-      : path.endsWith('/git/refs') ? 'สร้าง branch'
-      : path.includes('/git/ref/') ? 'อ่าน branch'
-      : path.includes('/git/trees') ? (method === 'POST' ? 'เตรียมชุดไฟล์' : 'อ่านรายการไฟล์')
-      : path.includes('/git/commits') ? (method === 'POST' ? 'สร้าง commit' : 'อ่าน commit')
-      : path.includes('/actions/secrets') ? 'เข้าถึง Secrets'
-      : 'อ่านข้อมูล GitHub';
+    const operation = path.includes('/pulls') ? (method === 'POST' ? 'Create pull request' : 'Find existing pull request')
+      : path.endsWith('/git/refs') ? 'Create branch'
+      : path.includes('/git/ref/') ? 'Read branch'
+      : path.includes('/git/trees') ? (method === 'POST' ? 'Prepare files' : 'List files')
+      : path.includes('/git/commits') ? (method === 'POST' ? 'Create commit' : 'Read commit')
+      : path.includes('/actions/secrets') ? 'Access secrets'
+      : 'Read GitHub data';
     const id = response.headers.get('x-github-request-id') || '';
     throw new GitHubError(response.status, operation, reason, /^[A-Za-z0-9:-]{1,100}$/.test(id) ? id : '');
   }

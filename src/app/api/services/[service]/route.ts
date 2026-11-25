@@ -7,26 +7,26 @@ import { credentialSchema, saveRepositorySecret, sonarProjects, sonarSchema } fr
 export const runtime = 'nodejs';
 export async function POST(request: NextRequest, context: { params: Promise<{ service: string }> }) {
   const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
-  if (request.headers.get('origin') !== new URL(appUrl()).origin) return json({ error: 'คำขอต้องมาจากหน้าเว็บนี้' }, 403);
+  if (request.headers.get('origin') !== new URL(appUrl()).origin) return json({ error: 'Send this request from the application.' }, 403);
   const token = await unseal(request.cookies.get('qg_session')?.value);
-  if (!token) return json({ error: 'กรุณาเข้าสู่ระบบ GitHub ใหม่' }, 401);
+  if (!token) return json({ error: 'Sign in with GitHub again.' }, 401);
   const { service } = await context.params;
-  if (!['secret', 'sonar'].includes(service)) return json({ error: 'ไม่พบบริการ' }, 404);
+  if (!['secret', 'sonar'].includes(service)) return json({ error: 'Service not found.' }, 404);
   try {
-    if (!await matchesAccount(token, request.headers.get('x-qg-user-id'))) return json({code:'ACCOUNT_CHANGED', error:'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ'}, 409);
-  } catch { return json({error:'ยืนยันบัญชีไม่ได้ กรุณาเข้าสู่ระบบใหม่'}, 401); }
+    if (!await matchesAccount(token, request.headers.get('x-qg-user-id'))) return json({code:'ACCOUNT_CHANGED', error:'Your account changed. Reload this page to continue.'}, 409);
+  } catch { return json({error:'Unable to verify your account. Please sign in again.'}, 401); }
   let input;
   try {
     const raw = await request.text();
-    if (raw.length > 4096) return json({ error: 'ข้อมูลใหญ่เกินไป' }, 413);
+    if (raw.length > 4096) return json({ error: 'The submitted data is too large.' }, 413);
     input = JSON.parse(raw);
     if (service === 'secret') credentialSchema.parse(input); else sonarSchema.parse(input);
-  } catch { return json({ error: 'กรอกข้อมูลให้ครบและตรวจว่า key ไม่มีช่องว่าง' }, 400); }
+  } catch { return json({ error: 'Complete all fields and check that the key contains no spaces.' }, 400); }
   try {
     return json(service === 'secret' ? await saveRepositorySecret(clientFor(token), input) : await sonarProjects(input));
   } catch {
     return json({ error: service === 'secret'
-      ? 'ยังยืนยันการบันทึกไม่ได้ ตรวจสิทธิ์ Secrets: Read and write ของ GitHub App และอนุมัติสิทธิ์ใหม่ แล้วลองอีกครั้ง'
-      : 'อ่าน SonarCloud ไม่สำเร็จ ตรวจ token, Organization Key และสิทธิ์เข้าถึงโปรเจกต์ (รองรับภูมิภาค EU)' }, 502);
+      ? 'Could not confirm the save. Grant the GitHub App read and write access to Secrets, approve the updated permissions, and try again.'
+      : 'Could not read SonarCloud projects. Check the token, organization key and project access in the EU region.' }, 502);
   }
 }

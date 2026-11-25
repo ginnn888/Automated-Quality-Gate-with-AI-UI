@@ -73,7 +73,7 @@ test('validation rejects embedded credentials, query strings, expressions, unsaf
 test('unpublished Action version stops custom installation before repository mutations or secrets', async () => {
   const paths: string[] = [];
   const api: GitHubClient = async path => { paths.push(path); throw new Error('not published'); };
-  await assert.rejects(inspectInstallation(api, 'user/app', custom), /เผยแพร่ commit/);
+  await assert.rejects(inspectInstallation(api, 'user/app', custom), /Publish the Action commit/);
   assert.equal(paths.length, 1);
   assert.ok(paths[0].includes('/commits/'));
 });
